@@ -22,3 +22,7 @@ data/
 clear_outputs_and_logs.sh
 # Ignore the env file
 .env
+# Project (CS F429): run logs stay local; editable-install metadata
+logs/*
+!logs/.gitkeep
+*.egg-info/
