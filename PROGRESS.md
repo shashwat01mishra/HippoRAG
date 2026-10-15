@@ -21,3 +21,14 @@
 **Code map.** See `notes/code-map.md`.
 
 **Next.** Fill in `.env`, then do the sample sanity run (< $0.01), the dense baseline (~$0.3–0.5), and the HippoRAG run on MuSiQue after stamping.
+
+## 2026-10-16: Session 2: move to WSL filesystem (no experiment runs, $0 API spend)
+
+- Pushed `dev` (`f40d4c3`) and the `upstream-base` tag (`d5c8329`) to origin. The fork also has upstream's `backup-main` and `develop` branches, which were copied in when the fork was made.
+- The new working copy is `~/nlp-hipporag` (WSL ext4), on `dev`, with tags fetched and `upstream` added. `.venv` was recreated (Python 3.10, uv); the unit tests pass **93/93**. `.env` was copied over (`chmod 600`, key still empty). `/mnt/c/s_50/NLP project` is left untouched until the new copy is confirmed.
+- WSL git: identity is set to match Windows. Push auth goes through the Windows Git Credential Manager (`credential.helper`), with no gh in WSL and no sudo. A `git push --dry-run` authenticates OK.
+- `outputs/musique/openie_results_ner_meta-llama_Llama-3.3-70B-Instruct.json` is 24,191,460 bytes, with 11,656 docs and 144,511 triples (gpt-4o-mini: 127,640 triples). It also has no `provenance` block, so it would be rejected like the gpt-4o-mini file. Not stamped.
+- CLAUDE.md now has three more rules: every run gets its own `--save_dir`; base indexes are copied per condition, never modified; offline temp-dir verification is OK, but writing under `outputs/` is not.
+- The run commands now use their own save dirs (`outputs/sanity_sample`, `outputs/dense_musique`, `outputs/hipporag_musique`). The stamp targets `outputs/hipporag_musique`.
+- Incident: a shell-quoting bug in a commit command executed backticked words from the log text as commands in WSL. Everything failed harmlessly (command-not-found, plus a repeated `git push --dry-run`). I checked afterwards: no files changed, no commit, remote unchanged.
+- The unit tests leave an empty `outputs/gpt-4o-mini_nvidia_NV-Embed-v2/`. I left it in place (outputs/ rule).

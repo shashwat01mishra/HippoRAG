@@ -29,5 +29,8 @@
 - My own code goes in experiments/. Changes to src/ happen only for the extension, on their own branch, and each one gets explained.
 - Ask before any paid API call, and estimate tokens and cost first. Test on a subset before any full run.
 - Long runs go in tmux, with output tee'd to logs/.
+- Every run gets its own --save_dir.
+- Experiments never modify a base index; copy the working dir per experimental condition.
+- Offline, network-blocked verification in temp dirs is allowed without asking. Writing anywhere under outputs/ is not.
 - Log every session in PROGRESS.md: date, what ran, the numbers, the cost, and any decisions.
 - Explain what a command does before running it. I need to understand everything that gets built.
