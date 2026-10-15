@@ -32,3 +32,10 @@
 - The run commands now use their own save dirs (`outputs/sanity_sample`, `outputs/dense_musique`, `outputs/hipporag_musique`). The stamp targets `outputs/hipporag_musique`.
 - Incident: a shell-quoting bug in a commit command executed backticked words from the log text as commands in WSL. Everything failed harmlessly (command-not-found, plus a repeated `git push --dry-run`). I checked afterwards: no files changed, no commit, remote unchanged.
 - The unit tests leave an empty `outputs/gpt-4o-mini_nvidia_NV-Embed-v2/`. I left it in place (outputs/ rule).
+
+## 2026-10-16: Session 2 (cont.)
+
+- Pushed `3e75020` to origin `dev`.
+- With explicit authorization, `rmdir`'d the empty `outputs/gpt-4o-mini_nvidia_NV-Embed-v2/` in `~/nlp-hipporag`.
+- New CLAUDE.md rule: multi-line text goes through the file-write tool, never shell strings (two quoting incidents in two sessions).
+- Sanity run (a) was reported as passed, but no trace of it was found: there's no `logs/sanity_sample_*.log` and no `outputs/sanity_sample/` in either copy or under `~`/`/tmp`, and both `.env` files still have an empty key. So the deletion of `/mnt/c/s_50/NLP project` is on hold pending the user's confirmation. That copy is clean (no uncommitted changes, unpushed commits or stashes), so it holds nothing that isn't on GitHub, apart from a rebuildable `.venv` and an empty `.env`.

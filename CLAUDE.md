@@ -34,3 +34,4 @@
 - Offline, network-blocked verification in temp dirs is allowed without asking. Writing anywhere under outputs/ is not.
 - Log every session in PROGRESS.md: date, what ran, the numbers, the cost, and any decisions.
 - Explain what a command does before running it. I need to understand everything that gets built.
+- Write any multi-line text (logs, notes, commit bodies) with the file-write tool, never through shell strings. Commit bodies go in a file passed with `git commit -F`.
