@@ -39,3 +39,15 @@
 - With explicit authorization, `rmdir`'d the empty `outputs/gpt-4o-mini_nvidia_NV-Embed-v2/` in `~/nlp-hipporag`.
 - New CLAUDE.md rule: multi-line text goes through the file-write tool, never shell strings (two quoting incidents in two sessions).
 - Sanity run (a) was reported as passed, but no trace of it was found: there's no `logs/sanity_sample_*.log` and no `outputs/sanity_sample/` in either copy or under `~`/`/tmp`, and both `.env` files still have an empty key. So the deletion of `/mnt/c/s_50/NLP project` is on hold pending the user's confirmation. That copy is clean (no uncommitted changes, unpushed commits or stashes), so it holds nothing that isn't on GitHub, apart from a rebuildable `.venv` and an empty `.env`.
+
+## 2026-11-08: Session 3: move to MacBook Pro M5 (no experiment runs, $0 API spend)
+
+- The Windows/WSL laptop is unreachable (dead screen). Both WSL copies are gone with it; GitHub `dev` was complete, so nothing was lost. The Session 2 open item (deleting `/mnt/c/s_50/NLP project`) is moot.
+- Cloned `dev` to `~/nlp-hipporag` on macOS (arm64), fetched tags, added `upstream`. Verified HEAD = `3c01a1e`, `upstream-base` = `d5c8329`.
+- Installed via Homebrew: uv 0.13.7, tmux 3.8, gh 2.103.3.
+- `.venv`: Python 3.10.22 (uv-managed, aarch64), same patch version as on WSL. `uv pip install -e . pytest` installed cleanly on arm64; `uv pip check` reports all 81 packages compatible. torch 2.5.1 is the macOS build (CPU + MPS available, no CUDA); `from hipporag import HippoRAG` imports.
+- Offline unit tests (excluding `tests/integration/`): **93/93 pass**, in 7.6 s (WSL on `/mnt/c` took minutes just to import torch). As before, the tests leave an empty `outputs/gpt-4o-mini_nvidia_NV-Embed-v2/`; left in place (outputs/ rule).
+- `.env` created with an empty `OPENAI_API_KEY=`, `chmod 600`, gitignored (`.gitignore:24`). Key not yet filled in.
+- Git on this Mac: no identity was configured; set to match previous commits (`Shashwat <shashwatmishravats@gmail.com>`). Credential helper is `osxkeychain`; gh is not logged in, so push auth is not yet set up.
+- CLAUDE.md: scope replaced with the revised scope from 23 Oct (after Presentation 1); deadlines updated (Eval 2 planned for 13 Nov, paper 14 Nov, may move); platform note added.
+- Not yet done (carried over from Session 1): sample sanity run, dense baseline, HippoRAG MuSiQue run with the stamped OpenIE cache.

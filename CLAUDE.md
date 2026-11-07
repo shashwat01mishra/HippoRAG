@@ -6,22 +6,33 @@
 - Models: gpt-4o-mini (LLM) and text-embedding-3-small (embedder), instead of the paper's Llama-3.3-70B and NV-Embed-v2.
 - What gets reproduced is the gap between HippoRAG 2 and dense retrieval using the same embedder, not the absolute numbers. The paper's gap: Recall@5 74.7 vs 69.7, F1 48.6 vs 45.7. F1 with a gpt-4o-mini reader is compared against the paper's Appendix C Table 8.
 - Solo project.
+- Platform is now a MacBook Pro M5 (macOS, Apple Silicon). The WSL notes in PROGRESS.md are historical.
 
-## Scope: floor and ceiling
-- Floor (graded, must finish): the reproduction plus contradiction-aware graph updating.
-  - Detect conflicting triples, mark the old edge as superseded or down-weight it in PPR, and favour the newer passage.
-  - Evaluate on injected fact updates: accuracy on changed facts (should improve) and on unchanged facts (must not get worse).
-- Ceiling, built in layers:
-  1. Entrenchment curve: how many contradicting insertions it takes to flip retrieval, against the fact's graph topology.
-  2. Dense-RAG control.
-  3. Intervention using the contradiction detector.
-  4. Nonlinear belief integrator (post-course).
-  5. Robustness with a small extraction model.
+## Scope (revised 23 Oct, after Presentation 1)
+Claim: a theory of when retrieval memory resists correction, a protocol that measures it,
+and evidence across three kinds of memory. Not claimed as novel: contradiction-aware
+updating (Zep and Mem0 already do it).
+
+- Floor:
+  1. Reproduction: the HippoRAG 2 vs dense gap on MuSiQue.
+  2. Theory: per-passage PPR symmetry means resistance comes from seed exclusion,
+     top-5 contamination or graph asymmetry. Write the prediction before any run.
+  3. Update-resistance protocol: injected counterfactuals; grid of n (old-fact support)
+     by k (corrections); metrics correction@5, correction-outranks-old, contamination@5;
+     dense and HippoRAG 2 on the same index; every failure attributed to one of the
+     three mechanisms. Question: how much graph propagation adds beyond plain redundancy.
+  4. Contradiction-aware seeding, tested as one intervention: changed facts improve,
+     unchanged facts don't drop.
+- Ceiling: long-context reader arm (also locates retriever vs reader failure);
+  copies factor (exact copies vs paraphrases).
+- Future work: real corrections (TimeQA, Wikidata), Zep-style invalidation,
+  belief integrator, small extraction model.
+- Cut order if time runs out: copies factor, then long-context arm. Never cut the
+  reproduction, the fix or the attribution.
 
 ## Deadlines
-- Eval 1, literature report: around 17 Oct 2026
-- Eval 2, reproduction + enhancement: 31 Oct 2026
-- Final IEEE paper: 14 Nov 2026
+- Eval 2 (reproduction + enhancement): date not announced, planning for 13 Nov 2026.
+- Final IEEE paper: 14 Nov 2026, may move with Eval 2.
 
 ## Rules
 - `main` stays identical to upstream. Work happens on `dev`.
