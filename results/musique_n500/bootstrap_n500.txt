@@ -1,0 +1,8 @@
+$ .venv/bin/python experiments/bootstrap_gap.py --hipporag results/musique_n500/hipporag_per_query_n500.json --dense results/musique_n500/dense_per_query_n500.json --first 500
+n = 500 (first 500 questions of musique.json), 10000 paired resamples, seed 0
+metric      HippoRAG 2     dense      gap   95% CI (percentile)   P(gap<=0)
+Recall@5         62.00     56.10    +5.90   [ +3.73,  +8.00]      0.0000
+F1               44.93     40.27    +4.66   [ +1.52,  +7.69]      0.0019
+EM               30.80     27.60    +3.20   [ +0.00,  +6.40]      0.0302
+Recall@5 per question: HippoRAG better 113, dense better 52, tied 335
+F1 per question: HippoRAG better 90, dense better 61, tied 349

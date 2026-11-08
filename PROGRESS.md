@@ -117,4 +117,10 @@
 - Per question at n=500: Recall@5 HippoRAG better 113 / dense better 52 / tied 335; F1 90 / 61 / 349.
 
 ### Spend
-- n=500 runs: list ₹35.2 (from cache-metadata tokens), ≈ ₹40.5 at 1.15×, ≈ ₹39.1 at the observed 1.11×. Actual key usage to be recorded.
+- n=500 runs: list ₹35.2 (from cache-metadata tokens), ≈ ₹40.5 at 1.15×, ≈ ₹39.1 at the observed 1.11×.
+- **Actual: key usage ₹45.98 total, so the n=500 runs cost ₹28.40** (0.81× list). Running total ₹45.98 of the ₹100 cap; wallet ₹54.02.
+- **Cause: OpenAI automatic prompt caching** (cached input billed at half price on repeated ≥1,024-token prefixes). Checked against the cache metadata of the 1,202 new calls: HippoRAG 865k of 1.71M input tokens cached (51%, the filter's fixed few-shot prefix); dense 3k of 560k (1%, QA prompts too short). Pricing cached input at half gives ₹29.46 vs ₹28.40 actual (0.96). Per mode: HippoRAG ≈ 0.78× list, dense ≈ 1.0× list. Embeddings get no discount, which explains the subset's 1.11× (3.88M embedding tokens).
+- **Multipliers from now on: LLM calls 0.85× list, embeddings 1.2× list. Recalibrate after the first extension cell.** Caveat: calls without a long shared prefix (dense QA; probably the long-context reader) ran at ≈ 1.0× list, so 0.85× may underestimate the reader.
+
+### Evidence backup
+- `results/musique_n500/`: both per-query files (sha256-identical copies), the bootstrap outputs for n=100 and n=500, and a README with provenance. Tracked in git (≈ 5.2 MB of JSON); no embeddings or caches.
