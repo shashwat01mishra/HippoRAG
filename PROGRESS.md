@@ -170,3 +170,23 @@
 - SINGLE answered yes 284 times and no once, so it filtered almost nothing; the offline corpus check did the work (55).
 - Swap quality (20 printed): the rare stratum mostly reads plausibly (counties, actors, dates, record labels). The common stratum is still often implausible ("Jason Bourne series created by Walt Disney", "Time Warner Cable → United States Navy", "wedding to Charlemagne", "written by John Lennon"); frequent same-relation objects are generic. One type mismatch: "Scottish clan → Scottish indie rock band".
 - `data/targets_v2.jsonl` written; run_cells/analysis defaults still point to v1, pending review of the swaps.
+- **The SINGLE (single-valued) question in the picker call was ineffective: 284 yes / 1 no.** The offline corpus filter (subject with ≥ 2 objects for the relation: 55 dropped) did the actual filtering. Keep the offline filter; don't rely on the LLM answer.
+- The 78 v2 targets were not accepted.
+
+## 2026-11-09: Session 6 (cont.): targets v3 (paid, ≈ ₹0.31)
+
+### Decisions
+- **Groups instead of dropping collisions.** All picked targets are partitioned into collision-free groups by greedy colouring (most conflicts first). The strict rule holds within a group: no shared normalized s/o/o′ and no shared gold passage. Each group gets its own index per cell. Filter calls and the embed-once table are unchanged (each question is in exactly one group); indexing time and disk scale with the group count.
+- **Plausibility pass.** One gpt-4o-mini call per picked target (own cache: `outputs/extension/target_plausibility_v3/llm_cache`) rates the swapped sentence alone 1–5 for "would an informed reader find this believable even if it is wrong", penalising anachronisms, category errors and wrong nationality or era. Keep 4–5.
+- **Doubled-token check** at the swap boundary (word before o′ = o′'s first word, or word after = its last word). Hits are dropped, not edited.
+
+### Run (code at `c22c0db`, tree clean)
+- Log: `logs/targets_v3_plausibility_20261109_013404.log`; scores: `outputs/extension/target_plausibility_v3/scores.json`.
+- Input: the 158 v2 picks, rebuilt offline from `picks.json` (112 rare, 46 common; no picker re-run).
+- Estimate ₹0.44. Actual: 158 calls (42 cache hits), 18,876 in / 580 out tokens, ≈ **₹0.31** at list × 1.1.
+- Scores: 1: 63, 2: 43, 3: 20, 4: 20, 5: 12. Rare 45/26/16/14/11, common 18/17/4/6/1.
+- Doubled token: 1 hit ("emperor Emperor Wencheng"), dropped.
+- **Kept: 32 (25 rare, 7 common), in 5 groups of sizes 20 / 6 / 4 / 1 / 1.**
+- **Duplicates.** 65 of the 158 picks share an identical o→o′ swap with another pick (23 swaps): different MuSiQue questions on the same gold passage get the same sentence and the same pick. That is also why 42 rating calls were cache hits. The 32 kept targets come from only **21 distinct gold passages (17 rare, 4 common)**, and the extra groups exist mainly because of these shared passages.
+- Dry-run at 32 targets / 5 groups: grid ≈ ₹2.90 without the long-context arm; four-corner long-context ≈ ₹7.11; non-shared disk ≈ 4.8 GB per k ≥ 1 cell, 39.4 GB for all cells (841 GiB free).
+- Written: `experiments/extension/data/targets_v3.jsonl`, `experiments/extension/data/review_v3.md` (common first, then lowest score first). Defaults still point to v1. No cells run.
