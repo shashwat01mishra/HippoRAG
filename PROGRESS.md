@@ -51,3 +51,34 @@
 - Git on this Mac: no identity was configured; set to match previous commits (`Shashwat <shashwatmishravats@gmail.com>`). Credential helper is `osxkeychain`; gh is not logged in, so push auth is not yet set up.
 - CLAUDE.md: scope replaced with the revised scope from 23 Oct (after Presentation 1); deadlines updated (Eval 2 planned for 13 Nov, paper 14 Nov, may move); platform note added.
 - Not yet done (carried over from Session 1): sample sanity run, dense baseline, HippoRAG MuSiQue run with the stamped OpenIE cache.
+- After the commit, the repo was moved to `~/work/S50/nlp-hipporag` (the path above is outdated); `.venv` was rebuilt there and the tests pass 93/93 again.
+
+## 2026-11-08: Session 4: gateway setup, sanity run, 100-query subset (both modes)
+
+### Methods details
+- **Gateway.** All LLM and embedding calls go through AICredits (`https://api.aicredits.in/v1`), an OpenAI-compatible, rupee-billed gateway; I can't pay OpenAI directly. Key in `.env` as `OPENAI_API_KEY`, loaded per shell. Model IDs: `gpt-4o-mini` (the gateway resolves it to `gpt-4o-mini-2024-07-18`, the snapshot that produced the shipped OpenIE extractions) and `text-embedding-3-small` (1,536-d). Smoke test: `experiments/smoke_test_gateway.py`.
+- **Embedding routing.** `main.py` has no flag for `embedding_base_url`, so in `main.py` runs the embedding client falls back to the env var `OPENAI_BASE_URL` (the sanity run used this; its manifest records `embedding.base_url: null`). From the subset on, runs use `experiments/run_subset.py`, which passes `embedding_base_url` explicitly, so it is recorded in BaseConfig and the index manifest; `OPENAI_BASE_URL` is unset at launch.
+- **`max_tokens`.** For non-OpenAI hosts that aren't registered gateways, HippoRAG sends `max_tokens` rather than `max_completion_tokens` (`chat_max_tokens_key`, `llm/gateways.py`).
+- **Stamp caveat.** The stamp asserts that the shipped extractions came from the current OpenIE prompt and settings. The model snapshot matches; the prompt cannot be verified.
+- **Stamp provenance** records `llm_name` and `llm_base_url`, so a stamp is per model ID and endpoint. A stamp made for `api.openai.com` is rejected with the gateway URL (verified). `stamp_openie_cache.py` now takes both as required args.
+- **Shared passage vectors.** The dense run reuses HippoRAG's chunk embeddings (`experiments/share_chunks_to_dense.py`), so both modes rank with identical passage vectors and the comparison isolates the graph. Verified before copying: HippoRAG's preprocessing leaves MuSiQue docs unchanged (same texts, same IDs), same namespace and file layout, identical manifest `embedding` sections and embedding model class. StandardRAG writes its own manifest on the empty store first; the parquet is then copied (sha256-identical) and reopens with 11,656 rows matching the corpus.
+- **Subset.** First N queries of `musique.json` in file order; full 11,656-passage corpus always indexed. BaseConfig of `run_subset.py` vs `main.py` with identical flags: 68 fields, only `embedding_base_url` differs.
+- **`--embedding_batch_size 128`** (default 8). Can't change results: slices are sent sequentially and reassembled by the API's `index` field (checked), normalization is per row, and the batch size is not in the manifest.
+- **Guards.** `experiments/launch_run.zsh` refuses a dirty tree, logs commit + `src/`/`main.py` diff vs `upstream-base`, and for HippoRAG runs executes `experiments/verify_openie_cache.py` with the exact launch args, aborting unless OpenIE would process 0 chunks (tested both ways).
+- **Interruptions.** The LLM cache (`<save_dir>/llm_cache/*.sqlite`) commits each call, so reruns are free for completed calls in the same save_dir. Embedding passes are not resumable: a store is written once at the end of its pass.
+
+### Runs (all code at `6cca5b0`, `src/` and `main.py` identical to `upstream-base`)
+| Run | Save dir | n | Recall@5 | F1 | EM | Wall time | Tokens | Est. ₹ (list × 1.3) |
+|---|---|---|---|---|---|---|---|---|
+| sanity (`main.py`) | `outputs/sanity_sample` | 1 (3 passages) | 1.0 | 0.0 | 0.0 | 30 s | 6.4k in / 1.0k out | ₹0.135 (list) |
+| HippoRAG 2 | `outputs/hipporag_n100_musique` | 100 | 59.75 | 48.48 | 38.0 | 100 min (91 min embedding) | LLM 428k in / 15.3k out; embed 3.88M | ₹17.29 |
+| Dense | `outputs/dense_n100_musique` | 100 | 55.25 | 40.30 | 31.0 | 3.7 min | LLM 141k in / 9.8k out; embed queries only | ₹3.09 |
+
+- Paper (Llama-3.3-70B + NV-Embed-v2, n=1,000): Recall@5 74.7 vs 69.7 (+5.0), F1 48.6 vs 45.7 (+2.9). Here at n=100: Recall@5 +4.5, F1 +8.2. n=100 is too small to read the F1 gap; the full run decides.
+- Sanity F1 0: the reader answered "David Eagleman" (gold "Thomas C. Sudhof") with the gold passage at rank ≤ 2, so this is a reader error, not a pipeline fault.
+- Embedding throughput was about 43 items/s at batch 128, so the HippoRAG index took 91 min (my estimate was 25–45 min).
+- Logs: `logs/sanity_sample_20261108_113537.log`, `logs/hipporag_n100_20261108_143404.log`, `logs/dense_n100_20261108_161502.log`.
+
+### Spend
+- Smoke + sanity: ₹0.17 (key usage; list estimate ₹0.135, so the multiplier is ~1.26; using 1.3 from now on).
+- Subset: ≈ ₹20.4 estimated (list × 1.3); actual key usage to be recorded. Running total ≈ ₹20.6 of the ₹100 cap.
