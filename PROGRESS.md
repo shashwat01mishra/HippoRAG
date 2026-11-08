@@ -118,9 +118,10 @@
 
 ### Spend
 - n=500 runs: list ₹35.2 (from cache-metadata tokens), ≈ ₹40.5 at 1.15×, ≈ ₹39.1 at the observed 1.11×.
-- **Actual: key usage ₹45.98 total, so the n=500 runs cost ₹28.40** (0.81× list). Running total ₹45.98 of the ₹100 cap; wallet ₹54.02.
-- **Cause: OpenAI automatic prompt caching** (cached input billed at half price on repeated ≥1,024-token prefixes). Checked against the cache metadata of the 1,202 new calls: HippoRAG 865k of 1.71M input tokens cached (51%, the filter's fixed few-shot prefix); dense 3k of 560k (1%, QA prompts too short). Pricing cached input at half gives ₹29.46 vs ₹28.40 actual (0.96). Per mode: HippoRAG ≈ 0.78× list, dense ≈ 1.0× list. Embeddings get no discount, which explains the subset's 1.11× (3.88M embedding tokens).
-- **Multipliers from now on: LLM calls 0.85× list, embeddings 1.2× list. Recalibrate after the first extension cell.** Caveat: calls without a long shared prefix (dense QA; probably the long-context reader) ran at ≈ 1.0× list, so 0.85× may underestimate the reader.
+- **Actual: key usage ₹54.02 total, so the n=500 runs cost ₹36.44** (≈ 1.04× list at ₹88/$). Wallet ₹45.98; cap headroom ₹45.98.
+- **Correction.** An earlier version of this entry (commit `3855662`) misread ₹45.98, the wallet balance, as key usage. That gave a cost of ₹28.40 and a prompt-caching explanation for it, with LLM 0.85× / embeddings 1.2× multipliers. All of that is withdrawn: the real cost is at about list price, so no discount needs explaining.
+- **Multiplier from now on: ≈ 1.1× list for all calls** (subset 1.11×, n=500 1.04×).
+- Decision: the full 1,000 is not run now. The remaining 500 questions are ≈ ₹44 list ≈ ₹48 at 1.1×, more than the ₹45.98 wallet; with the ₹15 margin they would need ≈ ₹20 top-up and the cap raised to ≈ ₹120.
 
 ### Evidence backup
 - `results/musique_n500/`: both per-query files (sha256-identical copies), the bootstrap outputs for n=100 and n=500, and a README with provenance. Tracked in git (≈ 5.2 MB of JSON); no embeddings or caches.
