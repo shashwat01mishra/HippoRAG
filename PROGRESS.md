@@ -190,3 +190,23 @@
 - **Duplicates.** 65 of the 158 picks share an identical o→o′ swap with another pick (23 swaps): different MuSiQue questions on the same gold passage get the same sentence and the same pick. That is also why 42 rating calls were cache hits. The 32 kept targets come from only **21 distinct gold passages (17 rare, 4 common)**, and the extra groups exist mainly because of these shared passages.
 - Dry-run at 32 targets / 5 groups: grid ≈ ₹2.90 without the long-context arm; four-corner long-context ≈ ₹7.11; non-shared disk ≈ 4.8 GB per k ≥ 1 cell, 39.4 GB for all cells (841 GiB free).
 - Written: `experiments/extension/data/targets_v3.jsonl`, `experiments/extension/data/review_v3.md` (common first, then lowest score first). Defaults still point to v1. No cells run.
+- v3 not accepted: 32 targets / 21 passages is too few.
+
+## 2026-11-09: Session 6 (cont.): targets v4, generated o′ (paid, ≈ ₹0.98)
+
+### Method change and reason
+- **o′ is now generated, not picked.** v2/v3 chose o′ from objects that occur with the same relation elsewhere in the corpus. Those candidates were mostly implausible (v3: 106 of 158 picks rated 1–2; only 32 rated 4–5). v4 asks gpt-4o-mini for 3 replacements of the same fine-grained type that are plausible in the exact sentence and false (JSON reply; own cache `outputs/extension/target_generation_v4/llm_cache`). The first candidate passing the offline checks is used: not o, not an alias, no substring either way, not in the question's own paragraphs, same surface shape, no doubled token. The v3 plausibility rater then runs as a separate call (own cache `outputs/extension/target_plausibility_v4/llm_cache`); keep 4–5. The threshold was not lowered.
+- **Unit of analysis = distinct gold passage.** One question per passage (seeded choice), and n is reported as distinct swaps.
+- **Rare/common stratification dropped.** The corpus frequency of o and o′ (passages whose triples contain the entity; 0 if absent) is logged as a covariate. `analysis.py` splits by frequency only where every bin has ≥ 15 swaps.
+- Collision groups recomputed on the v4 set. The single-valued offline filter stays; the SINGLE LLM question is gone.
+- Generated o′ may be absent from the corpus. It then becomes a new entity node at indexing time, with its vector from the embed-once table (tested).
+- Triples are still copied from the OpenIE cache with o replaced, not extracted.
+
+### Run (code at `d442d00`, tree clean)
+- Log: `logs/targets_v4_20261109_014739.log`; per-passage generations, checks and scores: `outputs/extension/target_generation_v4/generations.json`.
+- Estimate (upper bound) ₹1.65. Actual: 139 generation + 132 rating calls, 52,197 in / 3,761 out tokens, ≈ **₹0.98** at list × 1.1.
+- Funnel: questions with an anchor and passing the single-valued filter → **139 distinct gold passages** (160 questions shared a passage; this is the ceiling) → 132 with a candidate passing the offline checks (7 none; failures counted per candidate: 47 in own paragraphs, 7 shape, 5 doubled token, 1 each equals-s / alias / substring) → **58 rated 4–5** (scores 1: 19, 2: 37, 3: 18, 4: 46, 5: 12). The cap of 120 was not reached.
+- Chosen candidate rank: 1st 109, 2nd 16, 3rd 7.
+- **Yield: 58 distinct swaps, 2 collision groups (57 + 1).** o′ frequency: 0 (absent) 36, 1–9 13, ≥ 10 9. o frequency: 1–9 49, ≥ 10 9. No frequency split reaches 15 per bin except o′ absent (36), so `analysis.py` will report "all" only.
+- Observation (not acted on): several 2–3 ratings look like believable swaps (Kamloops → Vancouver, Warner Music Group → Universal Music Group, Waseca County → Hennepin County, Hudson Bay → James Bay). The rater may penalise swaps whose true value it knows, i.e. it is rating truth more than believability.
+- Written: `experiments/extension/data/targets_v4.jsonl`, `experiments/extension/data/review_v4.md` (lowest plausibility first). No cells run.
