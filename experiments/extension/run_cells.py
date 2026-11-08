@@ -46,8 +46,17 @@ READER_OUT = 95
 FILTER_SECONDS, READER_SECONDS = 1.65, 2.25
 
 
-def cell_prefix(root, n, k):
-    return Path(root) / f"cell_n{n}_k{k}"          # run_subset/capture_config append _musique
+def cell_prefix(root, n, k, group=0):
+    return Path(root) / f"cell_n{n}_k{k}_g{group}"          # run_subset/capture_config append _musique
+
+
+def groups_of(targets):
+    """{group: [targets]}. Each group gets its own index per cell (collision-free within a group).
+    Targets without a 'group' field (v1/v2) form group 0."""
+    out = {}
+    for t in targets:
+        out.setdefault(int(t.get("group", 0)), []).append(t)
+    return dict(sorted(out.items()))
 
 
 def load_samples():
@@ -142,28 +151,31 @@ def dry_run(args):
     print(f"targets={T}  frozen vectors to embed once: " + ", ".join(f"{k}={len(v)}" for k, v in plan.items())
           + f"  ({emb_tokens} tokens, Rs {inr(emb_usd):.3f})")
     print(f"reader token count check: n=500 QA prompts counted {calibrate_reader_tokens():.0f} vs API mean 1441")
+    G = len(groups_of(targets))
+    print(f"groups={G} (one index per group per cell; sizes {[len(v) for v in groups_of(targets).values()]})")
     hdr = (f"{'cell':9s} {'inj':>4s} {'emb API':>7s} {'emb lookups':>11s} {'filter new':>10s} {'cache hits':>10s} "
            f"{'Rs filter':>9s} {'reader':>6s} {'reader tok':>10s} {'Rs reader':>9s} {'disk GB':>7s} {'wall min':>8s}")
     print(hdr)
     tot = {"rf": 0.0, "rr": 0.0, "disk": 0, "wall": 0.0, "wall_lc": 0.0, "fnew": 0, "reader": 0}
     for n, k in CELLS:
         inj = T * ((n - 1) + k)
-        lookups = inj + (new_facts if k > 0 else 0) + T          # chunks + new facts + preloaded queries
+        lookups = inj + (new_facts if k > 0 else 0) + T          # chunks + new facts + preloaded queries, all groups
         fnew, fhit = fplan[(n, k)]
         usd_f = fnew * (FILTER_IN * PRICE_USD_PER_M["gpt-4o-mini_in"] + FILTER_OUT * PRICE_USD_PER_M["gpt-4o-mini_out"]) / 1e6
         usd_r = (rtok[(n, k)] * PRICE_USD_PER_M["gpt-4o-mini_in"] + T * READER_OUT * PRICE_USD_PER_M["gpt-4o-mini_out"]) / 1e6
         if timings:
-            build = timings["clone_s"] + timings["verify_s"] + (timings["index_s"] if inj else 0) + timings["load_s"] + timings["prepare_s"]
+            build = G * (timings["clone_s"] + timings["verify_s"] + (timings["index_s"] if inj else 0)
+                         + timings["load_s"] + timings["prepare_s"])
             compute = 2 * T * timings["per_query_s"]
         else:
             build, compute = float("nan"), float("nan")
         wall = (build + compute + fnew * FILTER_SECONDS) / 60
         wall_lc = T * READER_SECONDS / 60
         print(f"n={n},k={k:<3d} {inj:4d} {0:7d} {lookups:11d} {fnew:10d} {fhit:10d} {inr(usd_f):9.2f} {T:6d} "
-              f"{rtok[(n, k)]:10d} {inr(usd_r):9.2f} {disk[(n, k)] / 1e9:7.2f} {wall:8.1f}")
+              f"{rtok[(n, k)]:10d} {inr(usd_r):9.2f} {G * disk[(n, k)] / 1e9:7.2f} {wall:8.1f}")
         if (n, k) in CORNERS:
             tot["rr_corners"] = tot.get("rr_corners", 0.0) + inr(usd_r)
-        tot["rf"] += inr(usd_f); tot["rr"] += inr(usd_r); tot["disk"] += disk[(n, k)]
+        tot["rf"] += inr(usd_f); tot["rr"] += inr(usd_r); tot["disk"] += G * disk[(n, k)]
         tot["wall"] += wall; tot["wall_lc"] += wall_lc; tot["fnew"] += fnew; tot["reader"] += T
     print(f"TOTAL: filter calls {tot['fnew']} (Rs {tot['rf']:.2f}); embed-once Rs {inr(emb_usd):.3f}; "
           f"grid without long-context Rs {tot['rf'] + inr(emb_usd):.2f}; reader calls {tot['reader']} (Rs {tot['rr']:.2f}); "
@@ -205,8 +217,9 @@ def random_table(targets, seed=0):
     return table
 
 
-def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), rehearsal=False):
-    """Clone, inject, guard, index, attribute every target. Writes <root>/results/cell_n{n}_k{k}.jsonl.
+def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), rehearsal=False, group=0):
+    """Clone, inject, guard, index, attribute every target of one group.
+    Writes <root>/results/cell_n{n}_k{k}_g{group}.jsonl.
 
     rehearsal=True: fake filter (keeps the first two candidates), the clone is deleted afterwards, and
     timings plus non-shared bytes are returned. The caller blocks the network and passes a random table.
@@ -215,21 +228,21 @@ def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), reh
     from experiments.extension.cell_index import clone_base, index_cell, remove_cell
     from experiments.extension.inject import append_openie_rows
     root = Path(root)
-    prefix = cell_prefix(root, n, k)
+    prefix = cell_prefix(root, n, k, group)
     save_dir = Path(str(prefix) + "_musique")
-    out_path = root / "results" / f"cell_n{n}_k{k}.jsonl"
+    out_path = root / "results" / f"cell_n{n}_k{k}_g{group}.jsonl"
     if out_path.exists():
         raise FileExistsError(f"{out_path} exists; refusing to overwrite results")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     variants = inject.cell_variants(targets, n, k)
-    stats = {"cell": [n, k], "injected": len(variants)}
+    stats = {"cell": [n, k], "group": group, "targets": len(targets), "injected": len(variants)}
     t0 = time.time()
     clone_base(BASE_SAVE_DIR, save_dir, shared_cache_dir=root / "llm_cache_shared")
     stats["clone_s"] = time.time() - t0
     inodes = _inodes(save_dir)
     stats["openie_rows_appended"] = append_openie_rows(save_dir / WORKING_DIR_NAME / "openie_state.json",
                                                        inject.openie_rows(variants))
-    extra = root / f"extra_docs_n{n}_k{k}.json"
+    extra = root / f"extra_docs_n{n}_k{k}_g{group}.json"
     extra.write_text(json.dumps([v["content"] for v in variants]), encoding="utf-8")
     t0 = time.time()
     guard = subprocess.run([sys.executable, "experiments/verify_openie_cache.py", "--extra_docs", str(extra), "--",
@@ -266,7 +279,7 @@ def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), reh
                 for arm in arms:
                     rag.apply_fix = arm == "fix"
                     rec = rag.attribute(t, old, new, gold_other, injected)
-                    rec.update(cell=[n, k], rehearsal=rehearsal)
+                    rec.update(cell=[n, k], group=group, rehearsal=rehearsal)
                     f.write(json.dumps(rec, ensure_ascii=False, default=float) + "\n")
         stats["per_query_s"] = (time.time() - t0) / (len(arms) * len(targets))
         stats["filter_calls"] = calls
@@ -291,9 +304,10 @@ def rehearse(args):
     cells = parse_cells(args.cells) if args.cells else CELLS
     all_stats = []
     for n, k in cells:
-        st = execute_cell(n, k, targets, samples, root, table, rehearsal=True)
-        print(json.dumps(st, default=str))
-        all_stats.append(st)
+        for g, group_targets in groups_of(targets).items():
+            st = execute_cell(n, k, group_targets, samples, root, table, rehearsal=True, group=g)
+            print(json.dumps(st, default=str))
+            all_stats.append(st)
     biggest = max(all_stats, key=lambda s: s["injected"])
     timings = {key: biggest[key] for key in ("clone_s", "verify_s", "load_s", "index_s", "prepare_s", "per_query_s")}
     timings["cells"] = all_stats
@@ -322,7 +336,8 @@ def run(args):
     samples = load_samples()
     root = REPO_ROOT / "outputs" / "extension" / args.run_id
     cells = parse_cells(args.cells) if args.cells else CELLS
-    need = sum(disk_plan(None)[c] for c in cells) * 1.2
+    groups = groups_of(targets)
+    need = sum(disk_plan(None)[c] for c in cells) * len(groups) * 1.2
     free = shutil.disk_usage(REPO_ROOT).free
     print(f"free disk {free / 1e9:.1f} GB, needed for {len(cells)} cell(s) ~{need / 1e9:.1f} GB (incl. 20% margin)")
     if free < need:
@@ -332,10 +347,11 @@ def run(args):
         return
     table = vectors.VectorTable.load(args.vectors)
     for n, k in cells:
-        st = execute_cell(n, k, targets, samples, root, table, arms=tuple(args.arms))
-        print(json.dumps(st, default=str))
-        with open(root / "results" / "cell_stats.jsonl", "a", encoding="utf-8") as f:
-            f.write(json.dumps(st, default=str) + "\n")
+        for g, group_targets in groups.items():
+            st = execute_cell(n, k, group_targets, samples, root, table, arms=tuple(args.arms), group=g)
+            print(json.dumps(st, default=str))
+            with open(root / "results" / "cell_stats.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(st, default=str) + "\n")
 
 
 def run_long_context(targets, samples, root, cells):

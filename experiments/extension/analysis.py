@@ -79,6 +79,7 @@ def flatten(records, targets_by_id, tolerances=TOLERANCES):
         arms = [("hipporag_fix", rec["hipporag"])] if rec["fix"] else [("hipporag", rec["hipporag"]), ("dense", rec["dense"])]
         for arm, r in arms:
             row = {"arm": arm, "n": n, "k": k, "stratum": t["stratum"], "target_id": rec["target_id"],
+                   "group": rec.get("group", 0),
                    "correction_at5": r["correction_at5"], "contamination_at5": r["contamination_at5"],
                    "best_new": r["best_new"], "best_old": r["best_old"], "rehearsal": rec.get("rehearsal", False)}
             if arm == "hipporag_fix":

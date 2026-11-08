@@ -539,3 +539,44 @@ def test_analysis_end_to_end(base_dir, tmp_path, target):
     table = analysis.summarize(rows)
     k0 = [e for e in table if e["k"] == 0]
     assert all(e["correction_at5"] is None and e["outranks@0.01"] is None for e in k0)
+
+
+# ---------------------------------------------------------------- targets v3 ---------------------
+def test_doubled_token_check():
+    from experiments.extension.select_targets_v3 import doubled_token_hits
+    body = "She was the mother of emperor Ahmad Shah Bahadur."
+    assert doubled_token_hits(body, "Ahmad Shah Bahadur", "Emperor Wencheng") == ["...emperor Emperor Wencheng"]
+    assert doubled_token_hits("It is in Richland County, South Carolina.", "Richland County", "Vernon County") == []
+    assert doubled_token_hits("Born in Paris city centre.", "Paris", "Mexico City") == ["Mexico City city..."]
+
+
+def _gt(tid, s, o, op, gold):
+    return {"target_id": tid, "s": s, "o": o, "o_prime": op, "gold_chunk": gold}
+
+
+def test_group_colouring_is_collision_free():
+    from experiments.extension.select_targets_v3 import assign_groups, check_groups
+    ts = [_gt("a", "S1", "O1", "X", "p1"), _gt("b", "S2", "O2", "X", "p2"),       # share o' X
+          _gt("c", "S3", "O1", "Y", "p3"),                                         # shares o O1 with a
+          _gt("d", "S4", "O4", "Z", "p1"),                                         # shares gold passage with a
+          _gt("e", "S5", "O5", "W", "p5")]                                         # free
+    n = assign_groups(ts)
+    check_groups(ts)
+    g = {t["target_id"]: t["group"] for t in ts}
+    assert g["a"] != g["b"] and g["a"] != g["c"] and g["a"] != g["d"]
+    assert n == 2 and g["e"] == 0
+    ts[1]["group"] = ts[0]["group"]
+    with pytest.raises(AssertionError):
+        check_groups(ts)
+
+
+def test_groups_get_separate_cells(base_dir, tmp_path, target):
+    """Two groups in one cell: separate clones; each index carries only its own group's variants."""
+    from experiments.extension.run_cells import cell_prefix, groups_of
+    t2 = json.loads(json.dumps(target))
+    t2.update(target_id="other", group=1)
+    t1 = dict(target, group=0)
+    groups = groups_of([t1, t2])
+    assert sorted(groups) == [0, 1] and [t["target_id"] for t in groups[1]] == ["other"]
+    assert cell_prefix(tmp_path, 3, 5, 0) != cell_prefix(tmp_path, 3, 5, 1)
+    assert groups_of([target]) == {0: [target]}                                  # v1/v2 targets: one group
