@@ -95,3 +95,26 @@
 
 ### Estimate (500-query run, 400 new questions, list × 1.15)
 - HippoRAG 2: 400 × (4,284 in + 153 out) ≈ ₹29.7. Dense: 400 × (1,408 in + 98 out) ≈ ₹10.9. Query embeddings negligible. **Total ≈ ₹40.7**; leaves ≈ ₹41.7 under the ₹100 cap (≥ ₹15 margin required).
+
+### Runs (code at `abac2cd`, `src/` and `main.py` identical to `upstream-base`; OpenIE guard: 0 chunks)
+| Run | Save dir | n | Recall@5 | F1 | EM | Wall time | New LLM tokens | Est. ₹ (list × 1.15) |
+|---|---|---|---|---|---|---|---|---|
+| HippoRAG 2 | `outputs/hipporag_n500_musique` | 500 | 62.00 | 44.93 | 30.8 | 26 min | 1.71M in / 59.2k out | ₹29.6 |
+| Dense | `outputs/dense_n500_musique` | 500 | 56.10 | 40.27 | 27.6 | 15 min | 560k in / 39.0k out | ₹10.9 |
+
+- No index work: every embedding store logged "Inserting 0 new records"; only the 500 query embeddings were fetched.
+- Logs: `logs/hipporag_n500_20261108_184611.log`, `logs/dense_n500_20261108_191236.log`. Per-query: `<save_dir>/per_query_n500.json`.
+- **Cache check.** Expected 1,000 / 500 cache rows; got 1,002 / 500. HippoRAG filter calls: exactly 400 new (all first-100 filter calls hit). QA calls: 402 new; the 2 extra are questions 7 and 11, whose reader prompt changed so the cache missed. Likely cause (not verified): query embeddings are re-fetched and not bitwise reproducible, which can reorder the top-5 passages. Consequence: **reruns are not exactly reproducible at the answer level** even with the LLM cache.
+- So the first-100 slice reproduces the n=100 run's Recall@5 (59.75) and EM (38.0) and all dense numbers, but HippoRAG F1 is 48.15 vs 48.48 logged. The n=100 CIs below are for that slice, not bit-for-bit for the n=100 run.
+
+### Paired bootstrap 95% CIs (gap = HippoRAG 2 − dense; 10,000 resamples of questions, seed 0)
+| n | Recall@5 gap [CI] | F1 gap [CI] | EM gap [CI] |
+|---|---|---|---|
+| 100 (first 100 of the n=500 runs) | +4.50 [−0.50, +9.67] | +7.84 [+0.49, +15.51] | +7.00 [−1.00, +15.00] |
+| 500 | **+5.90 [+3.73, +8.00]** | **+4.66 [+1.52, +7.69]** | +3.20 [+0.00, +6.40] |
+
+- Paper (n=1,000, Llama-3.3-70B + NV-Embed-v2): Recall@5 +5.0, F1 +2.9. Both paper gaps fall inside the n=500 CIs. At n=500 both gaps exclude 0.
+- Per question at n=500: Recall@5 HippoRAG better 113 / dense better 52 / tied 335; F1 90 / 61 / 349.
+
+### Spend
+- n=500 runs: list ₹35.2 (from cache-metadata tokens), ≈ ₹40.5 at 1.15×, ≈ ₹39.1 at the observed 1.11×. Actual key usage to be recorded.
