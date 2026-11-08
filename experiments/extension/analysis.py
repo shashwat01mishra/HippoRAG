@@ -1,7 +1,9 @@
 """Analysis of a grid run (offline). Reads <results>/cell_n*_k*.jsonl and the targets file.
 
 Arms: dense (dense retrieval on the cell's index, from the no-fix records), hipporag, hipporag_fix.
-Metrics by (n, k) and stratum (rare / common / all):
+Unit of analysis: one target = one distinct gold passage = one swap (N counts distinct swaps).
+Metrics by (n, k) and slice. Slices: 'all', plus frequency bins (FREQ_SPLITS: corpus passage frequency of o and
+of o', 0 if absent) for a split only when every bin of that split has >= MIN_BIN swaps:
   correction@5 (k >= 1), contamination@5 (mean number of old passages in the top 5),
   outranks / near_tie / loses at each tolerance in TOLERANCES, computed here from the raw best_new / best_old
   scores logged per record (PPR scores for the HippoRAG arms, raw cosine for dense).
@@ -63,6 +65,34 @@ def first_failure(rec, arm, target, tol, order=STAGE_ORDER, rules=None):
     return "unattributed"
 
 
+MIN_BIN = 15
+FREQ_SPLITS = {   # name: (target field, [(lo, hi or None, label)])  frequency = passages whose triples contain the entity
+    "o_prime_freq": ("freq_oprime_graph", [(0, 0, "absent"), (1, 9, "1-9"), (10, None, ">=10")]),
+    "o_freq": ("freq_o_graph", [(1, 1, "1"), (2, 9, "2-9"), (10, None, ">=10")]),
+}
+
+
+def slice_map(targets_by_id, min_bin=MIN_BIN, splits=None):
+    """({target_id: [slice labels]}, {split: {bin: count, 'used': bool}}). A split is used only if every bin
+    has >= min_bin targets (distinct swaps); 'all' is always present."""
+    splits = FREQ_SPLITS if splits is None else splits
+    labels = {tid: ["all"] for tid in targets_by_id}
+    report = {}
+    for name, (field, bins) in splits.items():
+        assign = {}
+        for tid, t in targets_by_id.items():
+            f = int(t.get(field) or 0)
+            assign[tid] = next((lab for lo, hi, lab in bins if f >= lo and (hi is None or f <= hi)), None)
+        counts = collections.Counter(assign.values())
+        used = all(counts.get(lab, 0) >= min_bin for _, _, lab in bins)
+        report[name] = {**{lab: counts.get(lab, 0) for _, _, lab in bins}, "used": used}
+        if used:
+            for tid, lab in assign.items():
+                if lab is not None:
+                    labels[tid].append(f"{name}:{lab}")
+    return labels, report
+
+
 def load_records(results_dir):
     records = []
     for path in sorted(Path(results_dir).glob("cell_n*_k*.jsonl")):
@@ -70,15 +100,17 @@ def load_records(results_dir):
     return records
 
 
-def flatten(records, targets_by_id, tolerances=TOLERANCES):
+def flatten(records, targets_by_id, tolerances=TOLERANCES, min_bin=MIN_BIN):
     """One row per (record, arm): the dense arm is taken from no-fix records only."""
+    slices, _ = slice_map(targets_by_id, min_bin)
     rows = []
     for rec in records:
         t = targets_by_id[rec["target_id"]]
         n, k = rec["cell"]
         arms = [("hipporag_fix", rec["hipporag"])] if rec["fix"] else [("hipporag", rec["hipporag"]), ("dense", rec["dense"])]
         for arm, r in arms:
-            row = {"arm": arm, "n": n, "k": k, "stratum": t["stratum"], "target_id": rec["target_id"],
+            row = {"arm": arm, "n": n, "k": k, "slices": slices[rec["target_id"]], "target_id": rec["target_id"],
+                   "freq_o": t.get("freq_o_graph"), "freq_oprime": t.get("freq_oprime_graph"),
                    "group": rec.get("group", 0),
                    "correction_at5": r["correction_at5"], "contamination_at5": r["contamination_at5"],
                    "best_new": r["best_new"], "best_old": r["best_old"], "rehearsal": rec.get("rehearsal", False)}
@@ -95,14 +127,14 @@ def flatten(records, targets_by_id, tolerances=TOLERANCES):
 
 
 def summarize(rows, tolerances=TOLERANCES):
-    """Metric table keyed by (arm, n, k, stratum) with stratum 'all' added."""
+    """Metric table keyed by (arm, n, k, slice); N = distinct swaps in the slice."""
     groups = collections.defaultdict(list)
     for row in rows:
-        for stratum in (row["stratum"], "all"):
-            groups[(row["arm"], row["n"], row["k"], stratum)].append(row)
+        for sl in row["slices"]:
+            groups[(row["arm"], row["n"], row["k"], sl)].append(row)
     table = []
-    for (arm, n, k, stratum), rs in sorted(groups.items()):
-        entry = {"arm": arm, "n": n, "k": k, "stratum": stratum, "N": len(rs),
+    for (arm, n, k, sl), rs in sorted(groups.items()):
+        entry = {"arm": arm, "n": n, "k": k, "slice": sl, "N": len(rs),
                  "contamination_at5": sum(r["contamination_at5"] for r in rs) / len(rs)}
         corr = [r["correction_at5"] for r in rs if r["correction_at5"] is not None]
         entry["correction_at5"] = sum(corr) / len(corr) if corr else None
@@ -120,12 +152,12 @@ def attribution_counts(rows, tolerances=TOLERANCES):
     groups = collections.defaultdict(list)
     for row in rows:
         if row["arm"] != "dense" and row["k"] > 0:
-            for stratum in (row["stratum"], "all"):
-                groups[(row["arm"], row["n"], row["k"], stratum)].append(row)
-    for (arm, n, k, stratum), rs in sorted(groups.items()):
+            for sl in row["slices"]:
+                groups[(row["arm"], row["n"], row["k"], sl)].append(row)
+    for (arm, n, k, sl), rs in sorted(groups.items()):
         for tol in tolerances:
             c = collections.Counter(r[f"stage@{tol}"] for r in rs)
-            out.append({"arm": arm, "n": n, "k": k, "stratum": stratum, "tol": tol, "N": len(rs),
+            out.append({"arm": arm, "n": n, "k": k, "slice": sl, "tol": tol, "N": len(rs),
                         **{s: c.get(s, 0) for s in ("ok", *STAGE_ORDER, "unattributed")}})
     return out
 
@@ -162,11 +194,22 @@ def _style(ax):
     ax.set_axisbelow(True)
 
 
-def _lookup(table, arm, n, k, stratum, key):
+def _lookup(table, arm, n, k, sl, key):
     for e in table:
-        if (e["arm"], e["n"], e["k"], e["stratum"]) == (arm, n, k, stratum):
+        if (e["arm"], e["n"], e["k"], e["slice"]) == (arm, n, k, sl):
             return e[key]
     return None
+
+
+def plot_slices(table):
+    """Figure columns: 'all', then the o' frequency bins if that split is in use (o bins stay in the tables)."""
+    present = {e["slice"] for e in table}
+    order = ["all"] + [f"o_prime_freq:{lab}" for _, _, lab in FREQ_SPLITS["o_prime_freq"][1]]
+    return [s for s in order if s in present]
+
+
+def _slice_title(sl):
+    return "all swaps" if sl == "all" else f"o′ frequency {sl.split(':', 1)[1]}"
 
 
 def plot_lines(table, key, title, ylabel, path, ks, ylim=None):
@@ -174,20 +217,22 @@ def plot_lines(table, key, title, ylabel, path, ks, ylim=None):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     ns = sorted({e["n"] for e in table})
-    fig, axes = plt.subplots(len(ns), 2, figsize=(9, 3.2 * len(ns)), sharex=True, sharey=True, squeeze=False,
-                             facecolor=SURFACE)
+    cols = plot_slices(table)
+    fig, axes = plt.subplots(len(ns), len(cols), figsize=(4.5 * len(cols), 3.2 * len(ns)), sharex=True, sharey=True,
+                             squeeze=False, facecolor=SURFACE)
     for i, n in enumerate(ns):
-        for j, stratum in enumerate(("rare", "common")):
+        for j, sl in enumerate(cols):
             ax = axes[i][j]
             _style(ax)
             for arm in ARMS:
-                pts = [(k, _lookup(table, arm, n, k, stratum, key)) for k in ks]
+                pts = [(k, _lookup(table, arm, n, k, sl, key)) for k in ks]
                 pts = [(k, v) for k, v in pts if v is not None]
                 if pts:
                     ax.plot([p[0] for p in pts], [p[1] for p in pts], color=ARM_COLOR[arm], linewidth=2,
                             marker=ARM_MARKER[arm], markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.5,
                             label=ARM_LABEL[arm])
-            ax.set_title(f"n = {n} old copies, {stratum} o′", fontsize=9, color=INK, loc="left")
+            n_swaps = _lookup(table, "hipporag", n, ks[-1], sl, "N")
+            ax.set_title(f"n = {n} old copies, {_slice_title(sl)} (N = {n_swaps})", fontsize=9, color=INK, loc="left")
             ax.set_xticks(ks)
             if ylim:
                 ax.set_ylim(*ylim)
@@ -242,7 +287,8 @@ def plot_stacks(rows, field, categories, colors, labels, title, path, arms, tol)
 def print_trace(rec, target):
     def fact(f):
         return f"({' | '.join(f)})"
-    print(f"\n=== {rec['target_id']}  cell {rec['cell']}  fix={rec['fix']}  [{target['stratum']}]")
+    print(f"\n=== {rec['target_id']}  cell {rec['cell']}  fix={rec['fix']}  "
+          f"[freq o={target.get('freq_o_graph')}, o'={target.get('freq_oprime_graph')}]")
     print(f"Q: {rec['question']}")
     print(f"swap: ({target['s']} | {target['r']} | {target['o']} -> {target['o_prime']})")
     print("A  candidates:")
@@ -313,16 +359,21 @@ def main():
                  "D": "D margin favours old", "E_tie": "E tie, outside top 5", "E_crowd": "E outranks, crowded out"},
                 "First failure stage", out / "attribution.png", ("hipporag", "hipporag_fix"), args.plot_tol)
 
-    lines = ["| arm | n | k | stratum | N | correction@5 | contamination@5 | " +
-             " | ".join(f"out/tie/lose @{t:g}" for t in TOLERANCES) + " |", "|" + "---|" * (7 + len(TOLERANCES))]
+    _, split_report = slice_map(targets, MIN_BIN)
+    n_swaps = len({r["target_id"] for r in rows})
+    lines = [f"N = {n_swaps} distinct swaps (one question per gold passage).", "",
+             f"Frequency splits (used only if every bin has >= {MIN_BIN} swaps): " +
+             "; ".join(f"{name} {rep}" for name, rep in split_report.items()), ""]
+    lines += ["| arm | n | k | slice | N | correction@5 | contamination@5 | " +
+              " | ".join(f"out/tie/lose @{t:g}" for t in TOLERANCES) + " |", "|" + "---|" * (7 + len(TOLERANCES))]
     fmt = lambda v: "-" if v is None else f"{v:.2f}"
     for e in table:
-        lines.append(f"| {e['arm']} | {e['n']} | {e['k']} | {e['stratum']} | {e['N']} | {fmt(e['correction_at5'])} | "
+        lines.append(f"| {e['arm']} | {e['n']} | {e['k']} | {e['slice']} | {e['N']} | {fmt(e['correction_at5'])} | "
                      f"{e['contamination_at5']:.2f} | " +
                      " | ".join("/".join(fmt(e[f'{o}@{t}']) for o in OUTCOMES) for t in TOLERANCES) + " |")
-    lines += ["", "| arm | n | k | stratum | tol | N | ok | A | B | C | D | E_tie | E_crowd |", "|" + "---|" * 13]
+    lines += ["", "| arm | n | k | slice | tol | N | ok | A | B | C | D | E_tie | E_crowd |", "|" + "---|" * 13]
     for a in attrib:
-        lines.append(f"| {a['arm']} | {a['n']} | {a['k']} | {a['stratum']} | {a['tol']:g} | {a['N']} | {a['ok']} | "
+        lines.append(f"| {a['arm']} | {a['n']} | {a['k']} | {a['slice']} | {a['tol']:g} | {a['N']} | {a['ok']} | "
                      f"{a['A']} | {a['B']} | {a['C']} | {a['D']} | {a['E_tie']} | {a['E_crowd']} |")
     fix_rows = [r for r in rows if r["arm"] == "hipporag_fix"]
     lines += ["", "Fix collateral drops (non-target facts dropped by the fix; the false-positive path of oracle detection)",

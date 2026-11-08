@@ -580,3 +580,58 @@ def test_groups_get_separate_cells(base_dir, tmp_path, target):
     assert sorted(groups) == [0, 1] and [t["target_id"] for t in groups[1]] == ["other"]
     assert cell_prefix(tmp_path, 3, 5, 0) != cell_prefix(tmp_path, 3, 5, 1)
     assert groups_of([target]) == {0: [target]}                                  # v1/v2 targets: one group
+
+
+# ---------------------------------------------------------------- targets v4 ---------------------
+def test_v4_candidate_checks():
+    from experiments.extension.select_targets_v4 import check_candidate, parse_candidates
+    para = SAMPLE["paragraphs"][1]
+    triple = ("Alpha City", "is located in", "Beta Province")
+    ok = lambda c: check_candidate(c, SAMPLE, para, triple)
+    assert ok("Gamma Region") is None
+    assert ok("beta province") == "equals o"
+    assert ok("Beta Province North") == "substring of/contains o"
+    assert ok("Theta River") == "in the question's own paragraphs"
+    assert ok("1901") == "surface shape differs"
+    assert ok("the Province") == "surface shape differs"
+    assert ok("") == "empty"
+    assert parse_candidates('Sure: {"candidates": ["A B", " ", "C"]}') == ["A B", "C"]
+    assert parse_candidates("no json") == []
+
+
+def test_frequency_split_needs_15_per_bin():
+    from experiments.extension.analysis import slice_map
+    ts = {f"t{i}": {"freq_oprime_graph": f, "freq_o_graph": 1} for i, f in enumerate([0] * 15 + [3] * 15 + [20] * 15)}
+    labels, report = slice_map(ts)
+    assert report["o_prime_freq"]["used"] and "o_prime_freq:absent" in labels["t0"]
+    assert not report["o_freq"]["used"] and all("o_freq" not in " ".join(v) for v in labels.values())
+    ts["t44"]["freq_oprime_graph"] = 3                                   # >=10 bin drops to 14
+    labels, report = slice_map(ts)
+    assert not report["o_prime_freq"]["used"] and labels["t0"] == ["all"]
+
+
+def test_v4_one_question_per_passage():
+    from experiments.extension.select_targets_v4 import anchors_one_per_passage
+    twin = json.loads(json.dumps(SAMPLE))
+    twin["id"] = "2hop__twin"
+    chosen, reasons = anchors_one_per_passage([SAMPLE, twin], openie_docs())
+    assert len(chosen) == 1 and reasons["another question on the same gold passage (one kept per passage)"] == 1
+
+
+def test_novel_o_prime_becomes_new_entity_node(base_dir, tmp_path, target):
+    """A generated o' absent from the corpus: one new entity node, vector served from the frozen table, seeded."""
+    t = json.loads(json.dumps(target))
+    para = {"title": t["title"], "paragraph_text": t["body"], "idx": t["para_idx"]}
+    t["o_prime"] = "Novel Province"
+    t["swapped_body"], t["swapped_triples"] = select_targets.swap_passage(para, t["triples"], t["o"], t["o_prime"])
+    t["swapped_entities"] = [t["o_prime"] if e == t["o"] else e for e in t["entities"]]
+    base = make(HippoRAG, base_dir)
+    base_vertices = base.graph.vcount()
+    base.close()
+    rag, variants, stats, table = build_cell(base_dir, tmp_path, t, 1, 2)
+    assert "novel province" in table and table.kinds["novel province"] == "entity"
+    assert rag.graph.vcount() == base_vertices + 2 + 1                       # 2 corrections + 1 new entity
+    assert stats["real_embed_calls"] == 0
+    old = [compute_mdhash_id(t["gold_chunk"], "chunk-")]
+    rec = rag.attribute(t, old, [v["chunk_id"] for v in variants])
+    assert rec["stage_c"]["seeds"]["o_prime"] is not None                     # node exists in the graph
