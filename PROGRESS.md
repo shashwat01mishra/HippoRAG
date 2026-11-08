@@ -133,3 +133,22 @@
 - Relation-as-type proxy is noisy (e.g. "part of the FA Cup", "born in Sweden, Oregon"); targets need manual review before the run.
 - Offline rehearsal on an APFS clone of `outputs/hipporag_n100_musique` (scratchpad, cell n=3,k=5, random stand-in vectors, fake filter, network blocked): `verify_openie_cache.py --extra_docs` reports 0 chunks needing OpenIE (12,496 cached); 0 embedding API calls (1,022 frozen vectors served: 840 passages + 182 facts, 0 entities); index 9.7 s, 0.088 s per traced query; 0.97 GB of non-shared disk per k≥1 cell. Base dir unchanged (inode/size/mtime of all 153 files).
 - Dry-run, full grid at 120 targets: 240 filter calls ≈ ₹10.6, embed-once ≈ ₹0.20, so ≈ ₹10.8 without the long-context arm; 1,200 reader calls ≈ ₹64.3, so ≈ ₹75.1 with it. Disk 7.9 GB for all cells; wall ≈ 13 min + 45 min.
+
+## 2026-11-09: Session 6: target v2 picker, analysis, attribution rule (offline, ₹0 spend)
+
+### Decisions
+- **Targets v2.** o′ is chosen by gpt-4o-mini: one call per eligible target, picking from ≤ 8 same-relation candidates that pass the surface checks (≤ 4 rare + ≤ 4 common, topped up), or "none". The anchors, strata, collision rules and the deterministic text/triple swap are unchanged from v1. **The triples stay copied from the OpenIE cache with o replaced, not extracted.** LLM cache: its own namespace, `outputs/extension/target_selection_v2/llm_cache`. Code: `select_targets_v2.py`. Not run yet: waiting for OK.
+- **Canonicalization = oracle detection.** The fix keeps exact match on the normalized (subject, relation). The correction's triple shares the old triple's subject and relation by construction, so detection of the injected contradiction is perfect. The fix measures resolution under perfect detection; detection quality is out of scope. Known false-positive path: a multi-valued relation re-asserted by an injected variant. The analysis counts drops of non-target facts.
+- **Tolerance at analysis time.** Records keep only raw best-new / best-old scores; `analysis.py` reports outranks / near-tie / loses at 0, 0.5 %, 1 % and 2 %.
+- **Attribution.** First failing stage, configurable: A new fact not a candidate → B filter dropped it → C o′ not seeded → D margin favours old beyond the tolerance → E outranks or ties but outside the top 5.
+- Run root approved: `outputs/extension/<run_id>/`. Free disk 841 GiB (7.9 GB needed). Long-context arm: four corners (1,1), (1,5), (3,1), (3,5) by default.
+- **Correction to Session 5:** the v1 targets came from **271** eligible questions, not 291. 291 was from the run before the shape checks.
+
+### Built / verified
+- `select_targets_v2.py` (estimate: 271 calls, 65.8k input tokens, ≤ 2.2k output, ≈ ₹1.08). Example prompts show that some same-relation pools contain no item of o's fine type (e.g. no county for "Rockland County"), so "none" may be frequent.
+- `analysis.py`: metrics by (n, k) × stratum × arm, tolerance sweep, attribution counts, fix-drop counts, 4 PNGs, `--trace` printer for stage A–E review.
+- `run_cells.py` refactored: one `execute_cell` serves the rehearsal and the paid run. The paid run writes to `outputs/extension/<run_id>/`, checks free disk first, refuses to overwrite results, and has `--cells`, `--arms` and `--long_context` (corners).
+- Full 10-cell offline rehearsal on clones of the real base (random vectors, fake filter, network blocked): every cell's OpenIE guard reported 0 chunks to extract, 0 embedding API calls, 4–8 s index per cell, ~0.084 s per traced query, ≤ 0.97 GB non-shared disk per cell. Base dir unchanged. The analysis ran end to end on those records (numbers meaningless by construction; all failures land in A).
+- Dry-run at 120 v1 targets: grid ≈ ₹10.8 without the long-context arm; long-context at the four corners 480 reader calls ≈ ₹26.4.
+- matplotlib 3.10.9 installed into `.venv` (not added to the upstream requirements).
+- Tests: extension 26/26, upstream 93/93.

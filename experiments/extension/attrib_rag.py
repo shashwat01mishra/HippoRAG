@@ -20,7 +20,7 @@ from experiments.extension.common import text_processing  # noqa: E402
 from src.hipporag.HippoRAG import HippoRAG  # noqa: E402
 from src.hipporag.embedding_store import compute_mdhash_id  # noqa: E402
 
-DEFAULT_TIE_TOLERANCE = 0.01   # relative; DESIGN DECISION (see outranks_old)
+DEFAULT_TIE_TOLERANCE = 0.01   # relative; applied at analysis time only (records keep raw scores)
 TOP = 5
 
 
@@ -147,7 +147,7 @@ class AttributionHippoRAG(HippoRAG):
         return np.asarray(ids), np.asarray(scores), trace
 
     # ---- attribution record ------------------------------------------------------------------------
-    def attribute(self, target, old_ids, new_ids, gold_other_ids=(), injected_ids=(), tolerance=DEFAULT_TIE_TOLERANCE):
+    def attribute(self, target, old_ids, new_ids, gold_other_ids=(), injected_ids=()):
         """One record per (question, cell): HippoRAG stages A-E, dense arm, metrics.
 
         old_ids: the base gold chunk plus the cell's extra old copies; new_ids: the cell's corrections;
@@ -184,7 +184,6 @@ class AttributionHippoRAG(HippoRAG):
                 "contamination_at5": sum(1 for c in top if c in old_ids),
                 "best_old": best_old, "best_new": best_new,
                 "margin_old_minus_new": None if best_new is None else best_old - best_new,
-                "outranks_old": outranks_old(best_new, best_old, tolerance),
             }
 
         hippo_score = {self.passage_node_keys[r]: float(s) for r, s in zip(ids, scores)}
@@ -220,7 +219,7 @@ class AttributionHippoRAG(HippoRAG):
         d_ids, d_scores = self.dense_passage_retrieval(query)
         dense_cos = {c: cosine[c] for c in cosine}
         dense_arm = arm(d_ids, d_scores, dense_cos)               # outranks on raw cosine, ranks on dense order
-        record["dense"] = dense_arm
+        record["dense"] = dense_arm                               # best_new/best_old are raw cosines
         return record
 
 

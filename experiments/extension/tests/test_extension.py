@@ -276,7 +276,7 @@ def test_attribution_record(base_dir, tmp_path, target):
         r = rec[arm]
         assert set(r["passages"]) == set(old + new)
         assert r["margin_old_minus_new"] == pytest.approx(r["best_old"] - r["best_new"])
-        assert r["outranks_old"] in {"outranks", "near_tie", "loses"}
+        assert "outranks_old" not in r                                         # tolerance applied at analysis time
         assert r["contamination_at5"] == sum(1 for t in r["top5"] if t["role"] == "old")
         assert r["correction_at5"] == any(t["role"] == "new" for t in r["top5"])
     # PPR score symmetry: identical-triple old copies get identical PPR scores up to their dense seed
@@ -287,7 +287,7 @@ def test_attribution_record(base_dir, tmp_path, target):
 def test_k0_has_no_outranks(base_dir, tmp_path, target):
     rag, variants, _, _ = build_cell(base_dir, tmp_path, target, 1, 0)
     rec = rag.attribute(target, [compute_mdhash_id(target["gold_chunk"], "chunk-")], [])
-    assert rec["hipporag"]["outranks_old"] is None and rec["hipporag"]["correction_at5"] is None
+    assert rec["hipporag"]["best_new"] is None and rec["hipporag"]["correction_at5"] is None
 
 
 def test_outranks_tolerance():
@@ -395,3 +395,97 @@ def test_filter_plan_counts():
     assert len(CELLS) == 10
     assert sum(new for new, _ in plan.values()) == 200            # one k=0 and one k>=1 prompt per question
     assert plan[(1, 0)] == (100, 100) and plan[(1, 1)] == (100, 100) and plan[(3, 5)] == (0, 200)
+
+
+# ---------------------------------------------------------------- targets v2 ---------------------
+def test_v2_candidate_pool_balances_strata():
+    from experiments.extension.select_targets_v2 import candidate_pool
+    rare = [(f"r{i}", 1) for i in range(10)]
+    common = [(f"c{i}", 20) for i in range(10)]
+    pool = candidate_pool("t", rare, common)
+    assert len(pool) == 8 and sum(f == 1 for _, f in pool) == 4
+    pool = candidate_pool("t", rare, common[:1])
+    assert len(pool) == 8 and sum(f == 20 for _, f in pool) == 1          # topped up from rare
+    assert candidate_pool("t", rare, common) == candidate_pool("t", rare, common)   # seeded
+
+
+def test_v2_parse_pick():
+    from experiments.extension.select_targets_v2 import parse_pick
+    assert parse_pick("3", 8) == 2 and parse_pick(" 1.", 8) == 0
+    assert parse_pick("none", 8) is None and parse_pick("9", 8) is None and parse_pick("I think", 8) is None
+
+
+def test_v2_selection_with_mock_picker():
+    from experiments.extension.select_targets_v2 import select_v2
+    seen = []
+
+    def pick_omega(messages):
+        seen.append(messages)
+        lines = messages[-1]["content"].split("Candidates:\n")[1].split("\n\n")[0].splitlines()
+        num = next((l.split(".")[0] for l in lines if "Omega Province" in l), "none")
+        return num, {"prompt_tokens": 100, "completion_tokens": 1}, False
+
+    targets, stats, picks = select_v2([SAMPLE], openie_docs(), pick_omega)
+    assert len(seen) == 1 and "Beta Province" in seen[0][-1]["content"]
+    assert targets[0]["o_prime"] == "Omega Province" and targets[0]["o_prime_source"] == "gpt-4o-mini"
+    assert [targets[0]["s"], targets[0]["r"], "Omega Province"] in targets[0]["swapped_triples"]
+    assert stats["usage"] == {"calls": 1, "cache_hits": 0, "prompt_tokens": 100, "completion_tokens": 1}
+    targets, stats, _ = select_v2([SAMPLE], openie_docs(), lambda m: ("none", {}, False))
+    assert targets == [] and stats["rejections"]["LLM picked none"] == 1
+
+
+# ---------------------------------------------------------------- analysis -----------------------
+def _rec(cand=True, kept=True, seeded=True, best_new=1.0, best_old=0.5, in_top5=False, k=1, fix=False):
+    nf = [tp("Alpha City"), tp("is located in"), tp("Zeta Province")]
+    kept_list = [nf] if kept else []
+    return {"target_id": "t", "cell": [1, k], "fix": fix, "flags": {"new_fact_in_candidates": cand},
+            "stage_b": {"kept": kept_list}, "fix_trace": {"kept": kept_list, "dropped": []},
+            "stage_c": {"seeds": {"o_prime": 0.1 if seeded else 0.0}},
+            "hipporag": {"correction_at5": (in_top5 if k else None), "best_new": best_new if k else None, "best_old": best_old}}
+
+
+def test_first_failure_stages():
+    from experiments.extension.analysis import STAGE_ORDER, first_failure
+    t = {"s": "Alpha City", "r": "is located in", "o_prime": "Zeta Province"}
+    assert first_failure(_rec(cand=False, kept=False, seeded=False), "hipporag", t, 0.01) == "A"
+    assert first_failure(_rec(kept=False, seeded=False), "hipporag", t, 0.01) == "B"
+    assert first_failure(_rec(seeded=False), "hipporag", t, 0.01) == "C"
+    assert first_failure(_rec(best_new=0.5, best_old=1.0), "hipporag", t, 0.01) == "D"
+    assert first_failure(_rec(best_new=0.995, best_old=1.0), "hipporag", t, 0.01) == "E"     # near tie
+    assert first_failure(_rec(best_new=0.995, best_old=1.0), "hipporag", t, 0.0) == "D"      # tolerance matters
+    assert first_failure(_rec(), "hipporag", t, 0.01) == "E"
+    assert first_failure(_rec(in_top5=True, cand=False), "hipporag", t, 0.01) == "ok"
+    assert first_failure(_rec(k=0), "hipporag", t, 0.01) is None
+    # configurable order
+    assert first_failure(_rec(cand=False, seeded=False), "hipporag", t, 0.01, order=("C", "A", "B", "D", "E")) == "C"
+    assert STAGE_ORDER == ("A", "B", "C", "D", "E")
+
+
+def test_analysis_end_to_end(base_dir, tmp_path, target):
+    from experiments.extension import analysis
+    results = tmp_path / "results"
+    results.mkdir()
+    for n, k in ((1, 0), (1, 1), (3, 2)):
+        rag, variants, _, _ = build_cell(base_dir, tmp_path, target, n, k)
+        old = [compute_mdhash_id(target["gold_chunk"], "chunk-")] + [v["chunk_id"] for v in variants if v["role"] == "old"]
+        new = [v["chunk_id"] for v in variants if v["role"] == "new"]
+        with open(results / f"cell_n{n}_k{k}.jsonl", "w") as f:
+            for fix in (False, True):
+                rag.apply_fix = fix
+                rec = rag.attribute(target, old, new, injected_ids={v["chunk_id"] for v in variants})
+                rec.update(cell=[n, k])
+                f.write(json.dumps(rec, default=float) + "\n")
+    targets_path = tmp_path / "targets.jsonl"
+    targets_path.write_text(json.dumps(target) + "\n")
+    out = tmp_path / "analysis"
+    sys.argv = ["analysis.py", "--results", str(results), "--targets", str(targets_path), "--out", str(out)]
+    analysis.main()
+    for name in ("metrics.csv", "attribution.csv", "summary.md", "correction_at5.png", "contamination_at5.png",
+                 "outranks_old.png", "attribution.png"):
+        assert (out / name).stat().st_size > 0
+    rows = analysis.flatten(analysis.load_records(results), {target["target_id"]: target})
+    assert {r["arm"] for r in rows} == {"dense", "hipporag", "hipporag_fix"}
+    assert len(rows) == 3 * 3                                       # 3 cells x 3 arms
+    table = analysis.summarize(rows)
+    k0 = [e for e in table if e["k"] == 0]
+    assert all(e["correction_at5"] is None and e["outranks@0.01"] is None for e in k0)

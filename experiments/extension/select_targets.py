@@ -138,10 +138,10 @@ def sentence_with(text: str, phrase: str) -> str:
     return text[:200]
 
 
-def select_targets(samples, openie_docs, n_candidates=120, seed=0):
-    by_passage, ent_passages, rel_objects = build_corpus_index(openie_docs)
-    all_passages = list(by_passage)
-    rng = random.Random(seed)
+def find_eligible(samples, openie_docs):
+    """Anchor + stratified o' pools for every qualifying question. Returns (index, eligible, reasons)."""
+    index = build_corpus_index(openie_docs)
+    by_passage, ent_passages, rel_objects = index
     reasons = collections.Counter()
     eligible = []
     for q_index, sample in enumerate(samples):
@@ -156,7 +156,36 @@ def select_targets(samples, openie_docs, n_candidates=120, seed=0):
             reasons["no o' candidate in either stratum"] += 1
             continue
         eligible.append((q_index, sample, para, t_index, triple, rare, common))
+    return index, eligible, reasons
 
+
+def make_target(index, all_passages, q_index, sample, para, t_index, triple, o_prime, stratum):
+    by_passage, ent_passages, rel_objects = index
+    s, r, o = triple
+    gold = chunk_text(para["title"], para["paragraph_text"])
+    entry = by_passage[gold]
+    body, swapped = swap_passage(para, entry["triples"], o, o_prime)
+    hop = next((i for i, d in enumerate(sample["question_decomposition"]) if d["paragraph_support_idx"] == para["idx"]), None)
+    return {
+        "target_id": sample["id"], "sample_index": q_index, "question": sample["question"],
+        "answer": sample["answer"], "answer_aliases": sample.get("answer_aliases", []),
+        "hop": hop, "n_hops": len(sample["question_decomposition"]),
+        "para_idx": para["idx"], "title": para["title"], "body": para["paragraph_text"],
+        "gold_chunk": gold, "s": s, "r": r, "o": o, "o_prime": o_prime, "triple_index": t_index,
+        "stratum": stratum,
+        "freq_o_graph": len(ent_passages.get(tp(o), ())), "freq_o_text": text_frequency(o, all_passages),
+        "freq_oprime_graph": len(ent_passages.get(tp(o_prime), ())), "freq_oprime_text": text_frequency(o_prime, all_passages),
+        "relation_pool": len(rel_objects[tp(r)]),
+        "triples": entry["triples"], "entities": entry["doc"]["extracted_entities"],
+        "swapped_body": body, "swapped_triples": swapped,
+        "swapped_entities": [o_prime if e == o else e for e in entry["doc"]["extracted_entities"]],
+    }
+
+
+def select_targets(samples, openie_docs, n_candidates=120, seed=0):
+    index, eligible, reasons = find_eligible(samples, openie_docs)
+    all_passages = list(index[0])
+    rng = random.Random(seed)
     rng.shuffle(eligible)
     targets, used_entities, used_passages = [], set(), set()
     counts = {"rare": 0, "common": 0}
@@ -178,23 +207,7 @@ def select_targets(samples, openie_docs, n_candidates=120, seed=0):
         used_entities |= ents
         used_passages.add(gold)
         counts[stratum] += 1
-        entry = by_passage[gold]
-        body, swapped = swap_passage(para, entry["triples"], o, o_prime)
-        hop = next((i for i, d in enumerate(sample["question_decomposition"]) if d["paragraph_support_idx"] == para["idx"]), None)
-        targets.append({
-            "target_id": sample["id"], "sample_index": q_index, "question": sample["question"],
-            "answer": sample["answer"], "answer_aliases": sample.get("answer_aliases", []),
-            "hop": hop, "n_hops": len(sample["question_decomposition"]),
-            "para_idx": para["idx"], "title": para["title"], "body": para["paragraph_text"],
-            "gold_chunk": gold, "s": s, "r": r, "o": o, "o_prime": o_prime, "triple_index": t_index,
-            "stratum": stratum,
-            "freq_o_graph": len(ent_passages.get(tp(o), ())), "freq_o_text": text_frequency(o, all_passages),
-            "freq_oprime_graph": len(ent_passages.get(tp(o_prime), ())), "freq_oprime_text": text_frequency(o_prime, all_passages),
-            "relation_pool": len(rel_objects[tp(r)]),
-            "triples": entry["triples"], "entities": entry["doc"]["extracted_entities"],
-            "swapped_body": body, "swapped_triples": swapped,
-            "swapped_entities": [o_prime if e == o else e for e in entry["doc"]["extracted_entities"]],
-        })
+        targets.append(make_target(index, all_passages, q_index, sample, para, t_index, triple, o_prime, stratum))
     stats = {"questions": len(samples), "eligible": len(eligible), "selected": len(targets),
              "by_stratum": dict(counts), "rejections": dict(reasons)}
     return targets, stats
