@@ -152,3 +152,21 @@
 - Dry-run at 120 v1 targets: grid ≈ ₹10.8 without the long-context arm; long-context at the four corners 480 reader calls ≈ ₹26.4.
 - matplotlib 3.10.9 installed into `.venv` (not added to the upstream requirements).
 - Tests: extension 26/26, upstream 93/93.
+
+## 2026-11-09: Session 6 (cont.): targets v2 picker run (paid, ≈ ₹1.40)
+
+### Decisions
+- **matplotlib** (3.10.9, in `.venv`) is an **analysis-only dependency**: it's used only by `experiments/extension/analysis.py` for PNG figures. It isn't needed for indexing, retrieval or any reproduction run, and it isn't in the upstream `requirements.txt`.
+- **Candidates.** Same-relation objects are ranked by cosine to o, using the base index's entity vectors (offline). Excluded: cosine ≥ 0.92, substrings either way, and answer aliases. The 8 nearest in the target's assigned stratum are offered; on "none" there is one retry with the other stratum, and the stratum change is logged.
+- **Single-valued relations only.** Offline: drop the target if its subject has ≥ 2 distinct objects for the relation in the corpus (55 dropped). In the same picker call, gpt-4o-mini answers SINGLE yes/no, and "no" drops the target.
+- **o′ is chosen by gpt-4o-mini; the triples stay copied from the OpenIE cache with o replaced, not extracted.**
+- Fix collateral drops (non-target facts dropped by the fix) stay a reported metric (`metrics.csv` column, `summary.md` table).
+- Attribution stage E split into **E_tie** (near tie, outside the top 5) and **E_crowd** (outranks old, outside the top 5).
+
+### Run (code at `91ea29c`, tree clean)
+- Log: `logs/targets_v2_picker_20261109_011557.log`. Picks with all candidates, responses and SINGLE answers: `outputs/extension/target_selection_v2/picks.json`. LLM cache: `outputs/extension/target_selection_v2/llm_cache/`.
+- Estimate ₹1.17 (no retries) to ₹1.95 (all retries). Actual: 285 calls (14 cache hits: identical prompts), 85,212 in / 2,786 out tokens, ≈ **₹1.40** at list × 1.1. Key usage not yet checked.
+- Yield: 216 prepared → 158 picked → **78 selected (53 rare, 25 common)**, below the 100–120 aim. Losses: 57 "none" after retry, 1 SINGLE = no, 80 entity/passage collisions. Of the 158 picks, 112 ended rare and 46 common; 18 selected targets changed stratum on retry.
+- SINGLE answered yes 284 times and no once, so it filtered almost nothing; the offline corpus check did the work (55).
+- Swap quality (20 printed): the rare stratum mostly reads plausibly (counties, actors, dates, record labels). The common stratum is still often implausible ("Jason Bourne series created by Walt Disney", "Time Warner Cable → United States Navy", "wedding to Charlemagne", "written by John Lennon"); frequent same-relation objects are generic. One type mismatch: "Scottish clan → Scottish indie rock band".
+- `data/targets_v2.jsonl` written; run_cells/analysis defaults still point to v1, pending review of the swaps.
