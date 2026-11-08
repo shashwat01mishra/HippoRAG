@@ -69,6 +69,8 @@ MIN_BIN = 15
 FREQ_SPLITS = {   # name: (target field, [(lo, hi or None, label)])  frequency = passages whose triples contain the entity
     "o_prime_freq": ("freq_oprime_graph", [(0, 0, "absent"), (1, 9, "1-9"), (10, None, ">=10")]),
     "o_freq": ("freq_o_graph", [(1, 1, "1"), (2, 9, "2-9"), (10, None, ">=10")]),
+    # closed-book probe (targets v5): does the model know o for (s, r, ?) without context
+    "model_knows_o": ("model_knows_o", [(1, 1, "yes"), (0, 0, "no")]),
 }
 
 
@@ -202,14 +204,19 @@ def _lookup(table, arm, n, k, sl, key):
 
 
 def plot_slices(table):
-    """Figure columns: 'all', then the o' frequency bins if that split is in use (o bins stay in the tables)."""
+    """Figure columns: 'all', the model_knows_o bins, then the o' frequency bins, for splits in use
+    (o frequency bins stay in the tables)."""
     present = {e["slice"] for e in table}
-    order = ["all"] + [f"o_prime_freq:{lab}" for _, _, lab in FREQ_SPLITS["o_prime_freq"][1]]
+    order = (["all"] + [f"model_knows_o:{lab}" for _, _, lab in FREQ_SPLITS["model_knows_o"][1]]
+             + [f"o_prime_freq:{lab}" for _, _, lab in FREQ_SPLITS["o_prime_freq"][1]])
     return [s for s in order if s in present]
 
 
 def _slice_title(sl):
-    return "all swaps" if sl == "all" else f"o′ frequency {sl.split(':', 1)[1]}"
+    if sl == "all":
+        return "all swaps"
+    name, lab = sl.split(":", 1)
+    return f"model knows o: {lab}" if name == "model_knows_o" else f"o′ frequency {lab}"
 
 
 def plot_lines(table, key, title, ylabel, path, ks, ylim=None):

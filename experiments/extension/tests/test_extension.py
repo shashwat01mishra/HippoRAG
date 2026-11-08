@@ -610,6 +610,24 @@ def test_frequency_split_needs_15_per_bin():
     assert not report["o_prime_freq"]["used"] and labels["t0"] == ["all"]
 
 
+def test_v5_checks_probe_and_knows_split():
+    from experiments.extension.analysis import slice_map
+    from experiments.extension.select_targets_v5 import knows, parse_checks
+    assert parse_checks("TYPE: yes\nCOHERENT: Yes\nPOSSIBLE: no") == {"type": True, "coherent": True, "possible": False}
+    assert parse_checks("TYPE: yes") == {"type": True, "coherent": None, "possible": None}
+    assert knows("Richland County", "Richland County") == (True, True)
+    assert knows("Richland County, South Carolina", "Richland County") == (False, True)
+    assert knows("The 1st of June", "June 1982") == (False, False)
+    assert knows("June 1982.", "8 June 1982", aliases=["June 1982"]) == (True, True)
+    ts = {f"t{i}": {"model_knows_o": i % 2 == 0, "freq_oprime_graph": 0, "freq_o_graph": 1} for i in range(30)}
+    labels, report = slice_map(ts)
+    assert report["model_knows_o"] == {"yes": 15, "no": 15, "used": True}
+    assert "model_knows_o:yes" in labels["t0"] and "model_knows_o:no" in labels["t1"]
+    ts.pop("t0")
+    _, report = slice_map(ts)
+    assert not report["model_knows_o"]["used"]
+
+
 def test_v4_one_question_per_passage():
     from experiments.extension.select_targets_v4 import anchors_one_per_passage
     twin = json.loads(json.dumps(SAMPLE))
