@@ -230,3 +230,13 @@
 - Frequency: o′ absent 62 / 1–9 41 / ≥ 10 17 (o′ split used); o 1–9 106 / ≥ 10 14 (o split not used, since its 2–9 and ≥ 10 bins fall short).
 - Caveats: the checks now reject very little (7 of 132), so the hand review in `review_v5.md` is the effective quality filter. The probe uses the bare triple subject, which is sometimes underspecified (e.g. "13th Legislative District"), so `model_knows_o` = no includes some cases where the question is just ambiguous.
 - Written: `experiments/extension/data/targets_v5.jsonl`, `experiments/extension/data/review_v5.md` (kept and dropped tables with the three checks, model_knows_o and the probe answer per swap). Defaults still point to v1. No cells run.
+
+## 2026-11-09: Session 6 (cont.): titled knowledge re-probe; hand-review tooling (paid, ≈ ₹0.16)
+
+- **Why:** the bare probe (subject + relation) was sometimes underspecified (e.g. "13th Legislative District" without the state).
+- **Re-probe:** gold passage title + subject + relation, no passage text and no answer. Fresh cache: `outputs/extension/knowledge_probe_v5_titled/llm_cache`. `model_knows_o` is now set from this probe. The bare probe is kept per target as `probe_answer_bare` / `model_knows_o_bare`. Same 120 swaps and groups (each rebuilt swap is checked against `targets_v5.jsonl`). Code: `experiments/extension/reprobe_v5.py`.
+- Run at `293125a` (tree clean); log `logs/reprobe_v5_20261109_030419.log`; per-target answers `outputs/extension/knowledge_probe_v5_titled/probe_titled.json`. Estimate (upper) ₹0.31; actual 132 calls, 8,823 in / 493 out tokens, ≈ **₹0.16**.
+- **model_knows_o (titled), 120 kept: yes 48 / no 72** (exact match only: 46 / 74). Bare probe before: 32 / 88. Transitions bare → titled: no→no 66, no→yes 22, yes→no 6, yes→yes 26. Over all 132: 52 / 80.
+- Cross-tab o′ frequency × knows o: absent 35 no / 27 yes; 1–9 28 / 13; ≥ 10 9 / 8. With the default all-y marks, both the o′-frequency and model_knows_o splits pass the ≥ 15 rule; o frequency does not.
+- **Hand review tooling:** `review_v5.md` now has a `keep` column (default `y`) and shows both probe answers. `experiments/extension/finalize_targets.py` reads the marks (must be y/n for exactly the 120 targets), writes `data/targets_final.jsonl` keeping the collision groups, and prints counts per o′-frequency bin and model_knows_o plus which analysis splits would be used. Tested; run end to end on the default marks into the scratchpad only. `targets_final.jsonl` not written yet; waiting for the hand marks.
+- Session spend so far (estimates at list × 1.1): picker v2 ₹1.40, plausibility v3 ₹0.31, v4 ₹0.98, v5 ₹0.75, re-probe ₹0.16, total ≈ **₹3.60**. Key usage not checked.
