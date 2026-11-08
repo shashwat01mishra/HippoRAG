@@ -240,3 +240,59 @@
 - Cross-tab o′ frequency × knows o: absent 35 no / 27 yes; 1–9 28 / 13; ≥ 10 9 / 8. With the default all-y marks, both the o′-frequency and model_knows_o splits pass the ≥ 15 rule; o frequency does not.
 - **Hand review tooling:** `review_v5.md` now has a `keep` column (default `y`) and shows both probe answers. `experiments/extension/finalize_targets.py` reads the marks (must be y/n for exactly the 120 targets), writes `data/targets_final.jsonl` keeping the collision groups, and prints counts per o′-frequency bin and model_knows_o plus which analysis splits would be used. Tested; run end to end on the default marks into the scratchpad only. `targets_final.jsonl` not written yet; waiting for the hand marks.
 - Session spend so far (estimates at list × 1.1): picker v2 ₹1.40, plausibility v3 ₹0.31, v4 ₹0.98, v5 ₹0.75, re-probe ₹0.16, total ≈ **₹3.60**. Key usage not checked.
+
+## 2026-11-09: Session 6 (cont.): Blind grid run `grid_v5_20261109` (paid, ≈ ₹33.29)
+
+### Decisions
+- **Blind protocol.** The grid ran before the hand review and before the prediction is written. Nothing was printed, summarised, plotted or read from the results: no metric values, and `analysis.py` was not run. Only progress, row counts, costs, structural gates, errors and file paths were inspected.
+- All 120 targets from `targets_v5.jsonl` were run. The hand marks go into `targets_final.jsonl` afterwards; `analysis.py --final` then restricts the analysis to those targets.
+- **Structural gates** per (cell, group), with abort on failure:
+  - 0 OpenIE chunks (`verify_openie_cache.py --extra_docs`);
+  - the real embedding model never called (patched to raise, and counted);
+  - every injected chunk present in the graph, the chunk store and the passage keys;
+  - the filter prompt identical across the no-fix and fix arms for every question;
+  - for 5 seeded random questions, the traced ranking and scores equal upstream `HippoRAG.retrieve()` exactly.
+  - Before paying, the gates were rehearsed offline on the real base (cell 1,1, both groups, random vectors, fake filter, network blocked).
+- Long-context gate: run the corners only if key headroom after step 3 is ≥ ₹35. Headroom is **estimated** as the last recorded wallet (₹45.98, Session 4), minus this session's spend at list × 1.1 from token counts. There is no balance endpoint; no top-up is assumed.
+
+### Run (code at `b4a64ab`, tree clean, `src/` + `main.py` 0-line diff vs `upstream-base`)
+- Root `outputs/extension/grid_v5_20261109/` (30 GB incl. clones). Logs: `logs/extension_grid_v5_20261109_20261109_034322.log` (steps 1–3), `logs/extension_grid_v5_20261109_longcontext_20261109_035837.log` (step 4).
+- Step 1 (embed once): 1,201 vectors (840 passages, 179 facts, 62 new entities, 120 queries), 114,619 tokens, ≈ **₹0.22**.
+- Step 2 (cell 1,1, both groups, fix arm): all gates passed; 240 rows; 120 filter calls, 339,900 in / 6,436 out tokens, ≈ **₹5.31**.
+- Step 3 (the other 9 cells, both groups, fix arm): all gates passed in all 18 (cell, group) runs; 240 rows per cell; 15 filter calls, 42,513 in / 867 out tokens, ≈ **₹0.67**.
+- Step 4 (long-context corners (1,1), (1,5), (3,1), (3,5)): headroom estimate after step 3 ₹36.18 ≥ ₹35, so it ran. 480 reader calls, 1,714,034 in / 37,932 out tokens, ≈ **₹27.09** (estimate ₹27.54). 120 rows per corner.
+- Run total ≈ ₹33.29. Session total ≈ ₹36.89. **Estimated remaining wallet ≈ ₹9.09** (key usage not checked).
+- Non-shared disk per (cell, group): about 1.6 GB for k ≥ 1 (fact, entity and chunk stores and the graph rewritten), 0.18 GB for (3,0), 0.02 GB for (1,0).
+
+### Seal (2026-11-09 04:16:16 IST)
+sha256 of every results file (paths relative to `outputs/extension/grid_v5_20261109/`). The `*.jsonl` files are copied, sha256-identical, to `results/extension/grid_v5_20261109/`.
+
+```
+2b403cbe513b5adff39881bca663d54ceab50950c9f66f600e5084e949d9f25c  results/cell_n1_k0_g0.jsonl
+e8af26bd93e544c5c136ea85ce56ad56717cfb42baa359f91023405a90c85a50  results/cell_n1_k0_g1.jsonl
+b8815d094c54e0da18ae040a873433bd7450d9bf003456254128e91c41c5c7c7  results/cell_n1_k1_g0.jsonl
+1f0aca7c53676a52f8af01a0d7fa0421ebd7de6db55e044bb703ae65f294243c  results/cell_n1_k1_g1.jsonl
+2ccc4e0bad99527eeda4bf9b92ea26b2b019639da0242c674d4a38d96705442f  results/cell_n1_k2_g0.jsonl
+a344f0e704e8d3c5c9e8a8769bc513fa5d45e1c30eb6cc35f943b4cba29392b3  results/cell_n1_k2_g1.jsonl
+0a97f63a6b67c654f49759185e8d421c7c8d471811a4b27f175bf5587e757017  results/cell_n1_k3_g0.jsonl
+53fda387c1d0ee03154ac0959f4dd6cfd5a65a04d05457101c81b0bc6dbd8de4  results/cell_n1_k3_g1.jsonl
+02b16b2210068b7fa7420399eff492c2b37ce73a370c37ae47818a65657ec3f9  results/cell_n1_k5_g0.jsonl
+bf999771847271044d1178897f92043272fc3234f471c94dde0edbfe7c102a8e  results/cell_n1_k5_g1.jsonl
+c8e397456dcae87db40464b8f7a98a4fef8239afbc70a68a7498c60c0bd4811d  results/cell_n3_k0_g0.jsonl
+b5600c8c579600d28c3739d2e7a7b90011a6afa743fa8cd638eee51faf97aff8  results/cell_n3_k0_g1.jsonl
+1a176485a569a1c6d67743a4abb65d3910938c71c0e40733288691e9502f27f9  results/cell_n3_k1_g0.jsonl
+7ca3306666d668748b476e47d9a1b366e19ef422de39e782d2f8227267bbc236  results/cell_n3_k1_g1.jsonl
+f24e537de7b4aebb5e7dc3cc84a2ae04e08b7d8ce375d9b36e2d1340b0015d0d  results/cell_n3_k2_g0.jsonl
+e478cf29900906c48c962b457a0868b039b8c8bc0cf34cdbb2453990dd2e7768  results/cell_n3_k2_g1.jsonl
+8c18296fe165559e6bf4d911a834cf88f00773e13216665a9e1396416b522042  results/cell_n3_k3_g0.jsonl
+9b9b6d405a555b838b85529daf9d6bdfa1f9f2d220755bb2d3f6cf4cae098954  results/cell_n3_k3_g1.jsonl
+fb5f9135c55893377fce0b543758889412e56af9c688d0766f80d1d9a4f37e64  results/cell_n3_k5_g0.jsonl
+9fd6cb9a174c9f8eb6819f256e2fd140769b206f67f57dc7d012debfe75cff76  results/cell_n3_k5_g1.jsonl
+2265791763fbfa081f1956339b3d71f32d3df563d3c9aa743ccbb2f8149b3819  results/cell_stats.jsonl
+0d9c5c8f20cb2603cf302ea7e3c1acabad4e38819368d0dcfee8f93457086c2d  results/long_context_n1_k1.jsonl
+9640282c56245441c7427cc2285341c1fe3ca93d0bd8c5067bcf9cd9b9752d47  results/long_context_n1_k5.jsonl
+f21453e92bbdd4745a2f0b3596e323b4620be388b64c2c48277b976cdbb6368b  results/long_context_n3_k1.jsonl
+228964d9eac6ede8ddcd2067ed8a6ba369368db84def0a71850d73b7db59126f  results/long_context_n3_k5.jsonl
+3fad9b144c2c1f7832a4397c3683b4df7834b8415ff98b31d9a41bb30dcc257f  vectors.npz
+```
+- Next: hand review → `finalize_targets.py` → commit the prediction → only then `analysis.py --final`.
