@@ -386,3 +386,12 @@ def test_capture_config_matches_launch(tmp_path):
     assert c.save_dir == str(tmp_path / "cell") + "_musique"
     assert (c.llm_name, c.embedding_model_name, c.embedding_batch_size, c.linking_top_k) == ("gpt-4o-mini", "text-embedding-3-small", 128, 5)
     assert c.embedding_base_url == c.llm_base_url == "https://api.aicredits.in/v1"
+
+
+# ---------------------------------------------------------------- step 7 -------------------------
+def test_filter_plan_counts():
+    from experiments.extension.run_cells import CELLS, filter_plan
+    plan = filter_plan(100)
+    assert len(CELLS) == 10
+    assert sum(new for new, _ in plan.values()) == 200            # one k=0 and one k>=1 prompt per question
+    assert plan[(1, 0)] == (100, 100) and plan[(1, 1)] == (100, 100) and plan[(3, 5)] == (0, 200)

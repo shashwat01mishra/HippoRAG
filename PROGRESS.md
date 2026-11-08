@@ -125,3 +125,11 @@
 
 ### Evidence backup
 - `results/musique_n500/`: both per-query files (sha256-identical copies), the bootstrap outputs for n=100 and n=500, and a README with provenance. Tracked in git (≈ 5.2 MB of JSON); no embeddings or caches.
+
+## 2026-11-08: Session 5: extension harness, offline (no API calls, ₹0 spend)
+
+- Built `experiments/extension/` (steps 1–7; file list in its README). `src/` and `main.py`: 0-line diff vs `upstream-base`. Tests: extension 21/21, upstream 93/93.
+- Targets: 120 (60 rare o′, freq_graph = 1; 60 common, freq_graph 10–143, median 17.5) from 291 eligible questions (seed 0). 118/120 anchor on the last hop. `.gitignore` now un-ignores `experiments/extension/data/`.
+- Relation-as-type proxy is noisy (e.g. "part of the FA Cup", "born in Sweden, Oregon"); targets need manual review before the run.
+- Offline rehearsal on an APFS clone of `outputs/hipporag_n100_musique` (scratchpad, cell n=3,k=5, random stand-in vectors, fake filter, network blocked): `verify_openie_cache.py --extra_docs` reports 0 chunks needing OpenIE (12,496 cached); 0 embedding API calls (1,022 frozen vectors served: 840 passages + 182 facts, 0 entities); index 9.7 s, 0.088 s per traced query; 0.97 GB of non-shared disk per k≥1 cell. Base dir unchanged (inode/size/mtime of all 153 files).
+- Dry-run, full grid at 120 targets: 240 filter calls ≈ ₹10.6, embed-once ≈ ₹0.20, so ≈ ₹10.8 without the long-context arm; 1,200 reader calls ≈ ₹64.3, so ≈ ₹75.1 with it. Disk 7.9 GB for all cells; wall ≈ 13 min + 45 min.
