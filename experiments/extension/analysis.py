@@ -11,7 +11,8 @@ with predicates in STAGE_RULES (both configurable):
   B  the filter did not keep it (for the fix arm: not kept after the fix)
   C  o' is not a seeded phrase (zero reset probability; includes the dense fallback)
   D  the PPR margin favours the old passage beyond the tolerance (outcome 'loses')
-  E  otherwise: the correction outranks or ties the old passage but is still outside the top 5
+  E_tie    near tie with the old passage (within the tolerance), outside the top 5
+  E_crowd  outranks the old passage beyond the tolerance, still outside the top 5 (crowded out by other passages)
 Successes are labelled 'ok'. Dense-arm failures are not attributed (the stages do not exist there).
 
     .venv/bin/python experiments/extension/analysis.py --results <root>/results --out <dir>
@@ -31,7 +32,7 @@ from experiments.extension.common import TARGETS_PATH, text_processing as tp  # 
 TOLERANCES = (0.0, 0.005, 0.01, 0.02)
 ARMS = ("dense", "hipporag", "hipporag_fix")
 OUTCOMES = ("outranks", "near_tie", "loses")
-STAGE_ORDER = ("A", "B", "C", "D", "E")
+STAGE_ORDER = ("A", "B", "C", "D", "E_tie", "E_crowd")
 
 
 def _new_fact(t):
@@ -43,7 +44,8 @@ STAGE_RULES = {
     "B": lambda rec, arm, t, tol: _new_fact(t) not in (rec["fix_trace"]["kept"] if arm == "hipporag_fix" else rec["stage_b"]["kept"]),
     "C": lambda rec, arm, t, tol: rec["stage_c"] is None or not (rec["stage_c"]["seeds"].get("o_prime") or 0) > 0,
     "D": lambda rec, arm, t, tol: outranks_old(rec["hipporag"]["best_new"], rec["hipporag"]["best_old"], tol) == "loses",
-    "E": lambda rec, arm, t, tol: True,
+    "E_tie": lambda rec, arm, t, tol: outranks_old(rec["hipporag"]["best_new"], rec["hipporag"]["best_old"], tol) == "near_tie",
+    "E_crowd": lambda rec, arm, t, tol: outranks_old(rec["hipporag"]["best_new"], rec["hipporag"]["best_old"], tol) == "outranks",
 }
 
 
@@ -103,6 +105,7 @@ def summarize(rows, tolerances=TOLERANCES):
                  "contamination_at5": sum(r["contamination_at5"] for r in rs) / len(rs)}
         corr = [r["correction_at5"] for r in rs if r["correction_at5"] is not None]
         entry["correction_at5"] = sum(corr) / len(corr) if corr else None
+        entry["fix_collateral_drops"] = sum(r.get("fix_dropped_other", 0) for r in rs) if arm == "hipporag_fix" else None
         for tol in tolerances:
             outs = [r[f"outcome@{tol}"] for r in rs if r[f"outcome@{tol}"] is not None]
             for o in OUTCOMES:
@@ -141,7 +144,8 @@ ARM_COLOR = {"dense": "#2a78d6", "hipporag": "#eb6834", "hipporag_fix": "#1baf7a
 ARM_LABEL = {"dense": "Dense", "hipporag": "HippoRAG 2", "hipporag_fix": "HippoRAG 2 + fix"}
 ARM_MARKER = {"dense": "o", "hipporag": "s", "hipporag_fix": "^"}
 OUTCOME_COLOR = {"outranks": "#2a78d6", "near_tie": "#c3c2b7", "loses": "#e34948"}
-STAGE_COLOR = {"ok": "#c3c2b7", "A": "#2a78d6", "B": "#eb6834", "C": "#1baf7a", "D": "#eda100", "E": "#e87ba4",
+STAGE_COLOR = {"ok": "#c3c2b7", "A": "#2a78d6", "B": "#eb6834", "C": "#1baf7a", "D": "#eda100", "E_tie": "#e87ba4",
+               "E_crowd": "#008300",
                "unattributed": "#52514e"}
 INK, INK2, GRID, AXIS, SURFACE = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 
@@ -305,7 +309,7 @@ def main():
                 "Best correction vs best old passage", out / "outranks_old.png", ARMS, args.plot_tol)
     plot_stacks(rows, f"stage@{args.plot_tol}", ("ok", *STAGE_ORDER), STAGE_COLOR,
                 {"ok": "ok (in top 5)", "A": "A not a candidate", "B": "B filtered out", "C": "C o′ not seeded",
-                 "D": "D margin favours old", "E": "E outside top 5"},
+                 "D": "D margin favours old", "E_tie": "E tie, outside top 5", "E_crowd": "E outranks, crowded out"},
                 "First failure stage", out / "attribution.png", ("hipporag", "hipporag_fix"), args.plot_tol)
 
     lines = ["| arm | n | k | stratum | N | correction@5 | contamination@5 | " +
@@ -315,12 +319,13 @@ def main():
         lines.append(f"| {e['arm']} | {e['n']} | {e['k']} | {e['stratum']} | {e['N']} | {fmt(e['correction_at5'])} | "
                      f"{e['contamination_at5']:.2f} | " +
                      " | ".join("/".join(fmt(e[f'{o}@{t}']) for o in OUTCOMES) for t in TOLERANCES) + " |")
-    lines += ["", "| arm | n | k | stratum | tol | N | ok | A | B | C | D | E |", "|" + "---|" * 12]
+    lines += ["", "| arm | n | k | stratum | tol | N | ok | A | B | C | D | E_tie | E_crowd |", "|" + "---|" * 13]
     for a in attrib:
         lines.append(f"| {a['arm']} | {a['n']} | {a['k']} | {a['stratum']} | {a['tol']:g} | {a['N']} | {a['ok']} | "
-                     f"{a['A']} | {a['B']} | {a['C']} | {a['D']} | {a['E']} |")
+                     f"{a['A']} | {a['B']} | {a['C']} | {a['D']} | {a['E_tie']} | {a['E_crowd']} |")
     fix_rows = [r for r in rows if r["arm"] == "hipporag_fix"]
-    lines += ["", "| fix drops | n | k | records | dropped target old fact | dropped other facts |", "|---|---|---|---|---|---|"]
+    lines += ["", "Fix collateral drops (non-target facts dropped by the fix; the false-positive path of oracle detection)",
+              "", "| fix drops | n | k | records | dropped target old fact | dropped other facts (collateral) |", "|---|---|---|---|---|---|"]
     for n, k in sorted({(r["n"], r["k"]) for r in fix_rows}):
         rs = [r for r in fix_rows if (r["n"], r["k"]) == (n, k)]
         lines.append(f"| | {n} | {k} | {len(rs)} | {sum(r['fix_dropped_target_old'] for r in rs)} | "

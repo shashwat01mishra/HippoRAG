@@ -398,40 +398,90 @@ def test_filter_plan_counts():
 
 
 # ---------------------------------------------------------------- targets v2 ---------------------
-def test_v2_candidate_pool_balances_strata():
-    from experiments.extension.select_targets_v2 import candidate_pool
-    rare = [(f"r{i}", 1) for i in range(10)]
-    common = [(f"c{i}", 20) for i in range(10)]
-    pool = candidate_pool("t", rare, common)
-    assert len(pool) == 8 and sum(f == 1 for _, f in pool) == 4
-    pool = candidate_pool("t", rare, common[:1])
-    assert len(pool) == 8 and sum(f == 20 for _, f in pool) == 1          # topped up from rare
-    assert candidate_pool("t", rare, common) == candidate_pool("t", rare, common)   # seeded
+def _unit(*xs):
+    v = np.asarray(xs, dtype=np.float32)
+    return v / np.linalg.norm(v)
 
 
-def test_v2_parse_pick():
-    from experiments.extension.select_targets_v2 import parse_pick
-    assert parse_pick("3", 8) == 2 and parse_pick(" 1.", 8) == 0
-    assert parse_pick("none", 8) is None and parse_pick("9", 8) is None and parse_pick("I think", 8) is None
+# cosine to "beta province": sigma 0.995 (near-duplicate, excluded), omega 0.8, zeta 0.5
+V2_VECTORS = {"beta province": _unit(1, 0, 0), "sigma province": _unit(1, 0.1, 0),
+              "omega province": _unit(0.8, 0.6, 0), "zeta province": _unit(0.5, 0, 0.866)}
+
+
+def _candidates(messages):
+    return messages[-1]["content"].split("Candidates:\n")[1].split("\n\n")[0].splitlines()
+
+
+def _picker(name, single="yes", log=None):
+    def infer(messages):
+        if log is not None:
+            log.append(messages)
+        num = next((l.split(".")[0] for l in _candidates(messages) if name and name in l), "none")
+        return f"PICK: {num}\nSINGLE: {single}", {"prompt_tokens": 100, "completion_tokens": 6}, False
+    return infer
+
+
+def test_v2_ranking_excludes_near_duplicates():
+    from experiments.extension.select_targets_v2 import ranked
+    pool = [("Sigma Province", 1), ("Omega Province", 1), ("Zeta Province", 1), ("No Vector", 1)]
+    out = ranked("Beta Province", pool, V2_VECTORS)
+    assert [c for c, _, _ in out] == ["Omega Province", "Zeta Province"]
+    assert out[0][2] == pytest.approx(0.8, abs=1e-4)
+
+
+def test_v2_parse_response():
+    from experiments.extension.select_targets_v2 import parse_response
+    assert parse_response("PICK: 3\nSINGLE: yes", 8) == (2, True)
+    assert parse_response("pick: none\nsingle: no", 8) == (None, False)
+    assert parse_response("PICK: 9\nSINGLE: yes", 8) == (None, True)
+    assert parse_response("I think 3", 8) == (None, None)
 
 
 def test_v2_selection_with_mock_picker():
     from experiments.extension.select_targets_v2 import select_v2
     seen = []
+    targets, stats, picks = select_v2([SAMPLE], openie_docs(), _picker("Omega Province", log=seen), V2_VECTORS)
+    assert len(seen) == 1
+    prompt = seen[0][-1]["content"]
+    assert "Beta Province" in prompt and "Sigma Province" not in prompt and "SINGLE" in prompt
+    t = targets[0]
+    assert t["o_prime"] == "Omega Province" and t["o_prime_source"] == "gpt-4o-mini" and not t["stratum_changed"]
+    assert [t["s"], t["r"], "Omega Province"] in t["swapped_triples"]
+    assert stats["usage"] == {"calls": 1, "cache_hits": 0, "prompt_tokens": 100, "completion_tokens": 6}
 
-    def pick_omega(messages):
-        seen.append(messages)
-        lines = messages[-1]["content"].split("Candidates:\n")[1].split("\n\n")[0].splitlines()
-        num = next((l.split(".")[0] for l in lines if "Omega Province" in l), "none")
-        return num, {"prompt_tokens": 100, "completion_tokens": 1}, False
 
-    targets, stats, picks = select_v2([SAMPLE], openie_docs(), pick_omega)
-    assert len(seen) == 1 and "Beta Province" in seen[0][-1]["content"]
-    assert targets[0]["o_prime"] == "Omega Province" and targets[0]["o_prime_source"] == "gpt-4o-mini"
-    assert [targets[0]["s"], targets[0]["r"], "Omega Province"] in targets[0]["swapped_triples"]
-    assert stats["usage"] == {"calls": 1, "cache_hits": 0, "prompt_tokens": 100, "completion_tokens": 1}
-    targets, stats, _ = select_v2([SAMPLE], openie_docs(), lambda m: ("none", {}, False))
-    assert targets == [] and stats["rejections"]["LLM picked none"] == 1
+def test_v2_drops_multi_valued():
+    from experiments.extension.select_targets_v2 import select_v2
+    targets, stats, _ = select_v2([SAMPLE], openie_docs(), _picker("Omega Province", single="no"), V2_VECTORS)
+    assert targets == [] and stats["rejections"]["LLM: multi-valued or unparseable SINGLE"] == 1
+    docs = openie_docs() + [{"idx": "chunk-x", "passage": "Extra\nAlpha City is located in Kappa Region.",
+                             "extracted_entities": [], "extracted_triples": [["Alpha City", "is located in", "Kappa Region"]]}]
+    calls = []
+    targets, stats, _ = select_v2([SAMPLE], docs, _picker("Omega Province", log=calls), V2_VECTORS)
+    assert targets == [] and calls == []                                   # dropped offline, no LLM call
+    assert stats["rejections"]["multi-valued in corpus (subject has >= 2 objects for the relation)"] == 1
+
+
+def test_v2_none_retries_other_stratum(monkeypatch):
+    from experiments.extension import select_targets
+    from experiments.extension.select_targets_v2 import select_v2
+    monkeypatch.setattr(select_targets, "COMMON_MIN", 1)       # synthetic corpus: every o' is in both pools
+    seen = []
+    targets, stats, picks = select_v2([SAMPLE], openie_docs(), _picker(None, log=seen), V2_VECTORS)
+    assert len(seen) == 2 and targets == []                    # none, retry once, none again
+    assert [c["stratum"] for c in picks[0]["calls"]] == ["common", "rare"] or \
+        [c["stratum"] for c in picks[0]["calls"]] == ["rare", "common"]
+    answers = iter(["PICK: none\nSINGLE: yes", None])
+
+    def none_then_omega(messages):
+        text = next(answers)
+        if text is None:
+            num = next(l.split(".")[0] for l in _candidates(messages) if "Omega Province" in l)
+            text = f"PICK: {num}\nSINGLE: yes"
+        return text, {}, False
+    targets, stats, _ = select_v2([SAMPLE], openie_docs(), none_then_omega, V2_VECTORS)
+    assert targets[0]["stratum_changed"] and targets[0]["stratum"] != targets[0]["assigned_stratum"]
+    assert stats["stratum_changes"] == 1
 
 
 # ---------------------------------------------------------------- analysis -----------------------
@@ -451,14 +501,14 @@ def test_first_failure_stages():
     assert first_failure(_rec(kept=False, seeded=False), "hipporag", t, 0.01) == "B"
     assert first_failure(_rec(seeded=False), "hipporag", t, 0.01) == "C"
     assert first_failure(_rec(best_new=0.5, best_old=1.0), "hipporag", t, 0.01) == "D"
-    assert first_failure(_rec(best_new=0.995, best_old=1.0), "hipporag", t, 0.01) == "E"     # near tie
+    assert first_failure(_rec(best_new=0.995, best_old=1.0), "hipporag", t, 0.01) == "E_tie"     # near tie
     assert first_failure(_rec(best_new=0.995, best_old=1.0), "hipporag", t, 0.0) == "D"      # tolerance matters
-    assert first_failure(_rec(), "hipporag", t, 0.01) == "E"
+    assert first_failure(_rec(), "hipporag", t, 0.01) == "E_crowd"
     assert first_failure(_rec(in_top5=True, cand=False), "hipporag", t, 0.01) == "ok"
     assert first_failure(_rec(k=0), "hipporag", t, 0.01) is None
     # configurable order
-    assert first_failure(_rec(cand=False, seeded=False), "hipporag", t, 0.01, order=("C", "A", "B", "D", "E")) == "C"
-    assert STAGE_ORDER == ("A", "B", "C", "D", "E")
+    assert first_failure(_rec(cand=False, seeded=False), "hipporag", t, 0.01, order=("C", "A", "B", "D", "E_tie", "E_crowd")) == "C"
+    assert STAGE_ORDER == ("A", "B", "C", "D", "E_tie", "E_crowd")
 
 
 def test_analysis_end_to_end(base_dir, tmp_path, target):
