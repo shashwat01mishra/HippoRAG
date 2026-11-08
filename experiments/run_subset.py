@@ -138,7 +138,13 @@ def main():
     rag_class = HippoRAG if args.rag_type == "hipporag" else StandardRAG
     with rag_class(global_config=config) as rag:
         rag.index(docs)
-        rag.rag_qa(queries=queries, gold_docs=gold_docs, gold_answers=gold_answers)
+        solutions = rag.rag_qa(queries=queries, gold_docs=gold_docs, gold_answers=gold_answers)[0]
+    # Per-query results (question order = sample order) for paired bootstrap CIs; not in main.py.
+    per_query_path = Path(save_dir) / f"per_query_n{len(samples)}.json"
+    with open(per_query_path, "w", encoding="utf-8") as file:
+        json.dump([dict(index=i, **s.to_dict()) for i, s in enumerate(solutions)], file, ensure_ascii=False, indent=1,
+                  default=lambda o: o.item() if hasattr(o, "item") else str(o))
+    print(f"Per-query results: {per_query_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":

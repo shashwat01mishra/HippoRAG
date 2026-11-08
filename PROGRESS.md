@@ -62,7 +62,7 @@
 - **Stamp caveat.** The stamp asserts that the shipped extractions came from the current OpenIE prompt and settings. The model snapshot matches; the prompt cannot be verified.
 - **Stamp provenance** records `llm_name` and `llm_base_url`, so a stamp is per model ID and endpoint. A stamp made for `api.openai.com` is rejected with the gateway URL (verified). `stamp_openie_cache.py` now takes both as required args.
 - **Shared passage vectors.** The dense run reuses HippoRAG's chunk embeddings (`experiments/share_chunks_to_dense.py`), so both modes rank with identical passage vectors and the comparison isolates the graph. Verified before copying: HippoRAG's preprocessing leaves MuSiQue docs unchanged (same texts, same IDs), same namespace and file layout, identical manifest `embedding` sections and embedding model class. StandardRAG writes its own manifest on the empty store first; the parquet is then copied (sha256-identical) and reopens with 11,656 rows matching the corpus.
-- **Subset.** First N queries of `musique.json` in file order; full 11,656-passage corpus always indexed. BaseConfig of `run_subset.py` vs `main.py` with identical flags: 68 fields, only `embedding_base_url` differs.
+- **Subset.** Each subset is the first N questions of the authors' 1,000-question MuSiQue sample (`reproduce/dataset/musique.json`, file order), not a fresh random draw; the full 11,656-passage corpus is always indexed. BaseConfig of `run_subset.py` vs `main.py` with identical flags: 68 fields, only `embedding_base_url` differs.
 - **`--embedding_batch_size 128`** (default 8). Can't change results: slices are sent sequentially and reassembled by the API's `index` field (checked), normalization is per row, and the batch size is not in the manifest.
 - **Guards.** `experiments/launch_run.zsh` refuses a dirty tree, logs commit + `src/`/`main.py` diff vs `upstream-base`, and for HippoRAG runs executes `experiments/verify_openie_cache.py` with the exact launch args, aborting unless OpenIE would process 0 chunks (tested both ways).
 - **Interruptions.** The LLM cache (`<save_dir>/llm_cache/*.sqlite`) commits each call, so reruns are free for completed calls in the same save_dir. Embedding passes are not resumable: a store is written once at the end of its pass.
@@ -82,3 +82,16 @@
 ### Spend
 - Smoke + sanity: ₹0.17 (key usage; list estimate ₹0.135, so the multiplier is ~1.26; using 1.3 from now on).
 - Subset: ≈ ₹20.4 estimated (list × 1.3); actual key usage to be recorded. Running total ≈ ₹20.6 of the ₹100 cap.
+- **Actual (key usage after the subset): ₹17.58 total, so the subset cost ≈ ₹17.41** (estimate ₹20.4). Effective ≈ 1.11× list at ₹88/$, matching the gateway catalog. Multiplier from now on: **1.15×**. Wallet ₹82.42.
+
+## 2026-11-08: Session 4 (cont.): 500-query subset, paired bootstrap CIs
+
+### Decisions
+- Option (a): 500 queries, both modes (full 1,000 deferred). Save dirs `outputs/hipporag_n500_musique` and `outputs/dense_n500_musique` are copies of the n=100 save dirs (working dir + `llm_cache`), so the index and the first 100 questions' LLM calls are free. Copying is allowed under "experiments never modify a base index": the n=100 dirs stay untouched. Neither manifest records any save-dir path.
+- Same launcher and guards as the n=100 runs.
+- `run_subset.py` now writes `<save_dir>/per_query_n<N>.json` (question, answer, top-5 docs, gold docs/answers, in sample order) after `rag_qa`. BaseConfig diff vs `main.py` unchanged (68 fields, only `embedding_base_url`). The n=100 runs predate the dump and the LLM cache stores responses only, so n=100 per-question scores can't be rebuilt offline; the n=100 CIs come from the first 100 questions of the n=500 runs, valid only if that slice reproduces the n=100 pooled numbers exactly (checked below).
+- `experiments/bootstrap_gap.py`: paired bootstrap, resampling questions (10,000 resamples, seed 0, percentile 95% CI), per-question scores recomputed with the repo's evaluators. Tested offline on synthetic dumps, including a misaligned-pairing rejection.
+- Extension planning: OpenIE won't run on injected passages (triples copied from the cache by a deterministic swap), so that cost line is dropped.
+
+### Estimate (500-query run, 400 new questions, list × 1.15)
+- HippoRAG 2: 400 × (4,284 in + 153 out) ≈ ₹29.7. Dense: 400 × (1,408 in + 98 out) ≈ ₹10.9. Query embeddings negligible. **Total ≈ ₹40.7**; leaves ≈ ₹41.7 under the ₹100 cap (≥ ₹15 margin required).
