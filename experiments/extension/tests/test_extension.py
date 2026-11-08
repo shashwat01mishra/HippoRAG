@@ -628,6 +628,30 @@ def test_v5_checks_probe_and_knows_split():
     assert not report["model_knows_o"]["used"]
 
 
+def test_review_keep_marks_to_final(target):
+    from experiments.extension.finalize_targets import finalize, read_marks, report
+    from experiments.extension.select_targets_v5 import review_markdown
+    ts = []
+    for i, f in enumerate((0, 3)):
+        t = dict(target, target_id=f"t{i}", group=0, freq_oprime_graph=f, model_knows_o=bool(i),
+                 checks={"type": True, "coherent": True, "possible": True}, probe_answer_titled="x | y",
+                 probe_answer_bare="z", gold_chunk=f"p{i}", s=f"S{i}", o=target["o"], o_prime=target["o_prime"])
+        ts.append(t)
+    ts[1]["o"] = ts[0]["o"]                        # same o in one group would collide; give t1 its own group
+    ts[1]["group"] = 1
+    text = review_markdown(ts, [])
+    marks = read_marks(text)
+    assert marks == {"t0": "y", "t1": "y"}                                 # default y, pipe in a cell escaped
+    final = finalize(ts, {**marks, "t1": "n"})
+    assert [t["target_id"] for t in final] == ["t0"]
+    r = report(final)
+    assert r["final"] == 1 and r["model_knows_o"] == {"no": 1}
+    with pytest.raises(ValueError):
+        finalize(ts, {"t0": "y"})                                          # missing mark
+    with pytest.raises(ValueError):
+        read_marks(text.replace("| y | 1 |", "| maybe | 1 |"))             # invalid mark
+
+
 def test_v4_one_question_per_passage():
     from experiments.extension.select_targets_v4 import anchors_one_per_passage
     twin = json.loads(json.dumps(SAMPLE))

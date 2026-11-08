@@ -116,24 +116,31 @@ def review_markdown(kept, dropped):
     def yn(v):
         return "?" if v is None else ("yes" if v else "no")
 
-    def table(rows, title):
+    def table(rows, title, with_keep):
+        keep_h, keep_sep = ("keep | ", "---|") if with_keep else ("", "")
         lines = [f"## {title} ({len(rows)})", "",
-                 "| # | target | TYPE | COHERENT | POSSIBLE | knows o | model answer | freq o | freq o' | group | original | swapped |",
-                 "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                 f"| {keep_h}# | target | TYPE | COHERENT | POSSIBLE | knows o | probe (title) | probe (bare) | freq o | freq o' | "
+                 "group | original | swapped |",
+                 f"|{keep_sep}---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for i, t in enumerate(rows, 1):
             orig = sentence_with(t["body"], t["o"]).replace(t["o"], f"**{t['o']}**")
             new = swapped_sentence(t).replace(t["o_prime"], f"**{t['o_prime']}**")
             c = t["checks"]
-            lines.append(f"| {i} | {t['target_id']} | {yn(c['type'])} | {yn(c['coherent'])} | {yn(c['possible'])} | "
-                         f"{yn(t['model_knows_o'])} | {cell(t['probe_answer'])} | {t['freq_o_graph']} | {t['freq_oprime_graph']} | "
-                         f"{t.get('group', '-')} | {cell(orig)} | {cell(new)} |")
+            keep = "y | " if with_keep else ""
+            lines.append(f"| {keep}{i} | {t['target_id']} | {yn(c['type'])} | {yn(c['coherent'])} | {yn(c['possible'])} | "
+                         f"{yn(t['model_knows_o'])} | {cell(t.get('probe_answer_titled', '-'))} | "
+                         f"{cell(t.get('probe_answer_bare', t.get('probe_answer', '-')))} | {t['freq_o_graph']} | "
+                         f"{t['freq_oprime_graph']} | {t.get('group', '-')} | {cell(orig)} | {cell(new)} |")
         return lines
 
     key = lambda t: (t["model_knows_o"], t["target_id"])
     lines = ["# Targets v5 review", "",
-             "Kept = TYPE, COHERENT and POSSIBLE all yes (truth-blind checks). knows o = closed-book probe answer matches o "
-             "(covariate, not a filter). One question per gold passage; n = distinct swaps. o -> o' in bold.", ""]
-    lines += table(sorted(kept, key=key), "Kept") + [""] + table(sorted(dropped, key=key), "Dropped by the checks")
+             "Kept = TYPE, COHERENT and POSSIBLE all yes (truth-blind checks). knows o = the closed-book probe given the gold "
+             "passage title, subject and relation answers o (covariate, not a filter); probe (bare) = the first probe, "
+             "subject and relation only. One question per gold passage; n = distinct swaps. o -> o' in bold.", "",
+             "**Hand review:** set `keep` to `n` for a bad swap (leave `y` otherwise), then run "
+             "`.venv/bin/python experiments/extension/finalize_targets.py`.", ""]
+    lines += table(sorted(kept, key=key), "Kept", True) + [""] + table(sorted(dropped, key=key), "Dropped by the checks", False)
     return "\n".join(lines) + "\n"
 
 
