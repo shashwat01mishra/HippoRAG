@@ -31,6 +31,13 @@ os.environ.pop("OPENAI_BASE_URL", None)                  # launches run with it 
 if "--" not in sys.argv:
     sys.exit(__doc__)
 launch_args = sys.argv[sys.argv.index("--") + 1:]
+# Optional, before "--": --extra_docs <json list of chunk strings>, checked in addition to the corpus
+# (the extension's injected passages).
+own_args = sys.argv[1:sys.argv.index("--")]
+extra_docs = []
+if "--extra_docs" in own_args:
+    with open(own_args[own_args.index("--extra_docs") + 1], encoding="utf-8") as f:
+        extra_docs = json.load(f)
 
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, repo_root)
@@ -68,6 +75,7 @@ from src.hipporag.embedding_store import compute_mdhash_id
 with open(os.path.join(repo_root, "reproduce", "dataset", f"{config.dataset}_corpus.json"), encoding="utf-8") as f:
     corpus = json.load(f)
 docs = [f"{doc['title']}\n{doc['text']}" for doc in corpus]  # as main.py / run_subset.py
+docs += extra_docs
 
 with HippoRAG(global_config=config) as rag:
     print(f"working_dir           = {rag.working_dir}")
@@ -77,7 +85,8 @@ with HippoRAG(global_config=config) as rag:
     chunks = rag._preprocess_docs(docs)
     keys = {compute_mdhash_id(c.content, prefix=prefix) for c in chunks}
     info, to_process = rag.load_existing_openie(keys)
-    print(f"corpus docs           = {len(docs)}")
+    print(f"corpus docs           = {len(docs) - len(extra_docs)}")
+    print(f"extra docs            = {len(extra_docs)}")
     print(f"chunks                = {len(chunks)} ({len(keys)} unique keys)")
     print(f"cached OpenIE rows    = {len(info)}")
     print(f"chunks needing OpenIE = {len(to_process)}  (0 means no OpenIE API calls)")

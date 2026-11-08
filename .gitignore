@@ -26,3 +26,5 @@ clear_outputs_and_logs.sh
 logs/*
 !logs/.gitkeep
 *.egg-info/
+# Extension target set is versioned (small JSONL, reproducible from select_targets.py)
+!experiments/extension/data/
