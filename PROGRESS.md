@@ -210,3 +210,23 @@
 - **Yield: 58 distinct swaps, 2 collision groups (57 + 1).** o′ frequency: 0 (absent) 36, 1–9 13, ≥ 10 9. o frequency: 1–9 49, ≥ 10 9. No frequency split reaches 15 per bin except o′ absent (36), so `analysis.py` will report "all" only.
 - Observation (not acted on): several 2–3 ratings look like believable swaps (Kamloops → Vancouver, Warner Music Group → Universal Music Group, Waseca County → Hennepin County, Hudson Bay → James Bay). The rater may penalise swaps whose true value it knows, i.e. it is rating truth more than believability.
 - Written: `experiments/extension/data/targets_v4.jsonl`, `experiments/extension/data/review_v4.md` (lowest plausibility first). No cells run.
+
+## 2026-11-09: Session 6 (cont.): targets v5, truth-blind checks + knowledge probe (paid, ≈ ₹0.75)
+
+### Reason for the change
+- The v3/v4 1–5 rater scored **truth, not believability**: it marked down swaps whose true value it knew (e.g. Kamloops → Vancouver, Waseca County → Hennepin County rated 2–3). The kept sample was therefore biased towards facts the model does not know. That would hide any effect of the model's prior at the filter stage (B), which is exactly what the protocol needs to measure. The bar was not lowered; the rubric was replaced.
+
+### Decisions
+- **Three truth-blind yes/no checks** in one call (own cache `outputs/extension/target_checks_v5/llm_cache`), explicitly told to ignore the true value: TYPE (same fine-grained type as o), COHERENT (grammatical and coherent), POSSIBLE (no impossibility a reader who doesn't know the fact would spot). Keep iff all three are yes.
+- **Closed-book knowledge probe** per target (separate call, own cache `outputs/extension/knowledge_probe_v5/llm_cache`): (s, r, ?) with no context. `model_knows_o` = normalized answer equals o / an alias, or contains it as a whole phrase (`model_knows_o_exact` = equality only). It is a covariate, not a filter. `analysis.py` splits on it only where each bin has ≥ 15 swaps.
+- Everything else unchanged: v4's generated o′ (no regeneration), one question per gold passage, the offline checks, frequency logging, cap 120, collision groups recomputed.
+
+### Run (code at `b4c23b2`, tree clean)
+- Log: `logs/targets_v5_20261109_021859.log`; per-swap checks and probe answers: `outputs/extension/target_checks_v5/checks_and_probe.json`.
+- Estimate (upper bound) ₹0.95. Actual: 132 check + 132 probe calls, 42,015 in / 2,444 out tokens, ≈ **₹0.75** at list × 1.1.
+- Funnel: 139 distinct passages → 132 with a generated o′ passing the offline checks (v4) → **125 all three yes** (TYPE no: 6, POSSIBLE no: 1, COHERENT no: 0) → **120 after the cap** (5 removed by the seeded cap).
+- **Yield: 120 distinct swaps in 2 collision groups (115 + 5).**
+- **model_knows_o: yes 32 / no 88** among the kept (exact match only: 28 yes). Over all 132 candidates: 34 / 98. So the split is used (both bins ≥ 15).
+- Frequency: o′ absent 62 / 1–9 41 / ≥ 10 17 (o′ split used); o 1–9 106 / ≥ 10 14 (o split not used, since its 2–9 and ≥ 10 bins fall short).
+- Caveats: the checks now reject very little (7 of 132), so the hand review in `review_v5.md` is the effective quality filter. The probe uses the bare triple subject, which is sometimes underspecified (e.g. "13th Legislative District"), so `model_knows_o` = no includes some cases where the question is just ambiguous.
+- Written: `experiments/extension/data/targets_v5.jsonl`, `experiments/extension/data/review_v5.md` (kept and dropped tables with the three checks, model_knows_o and the probe answer per swap). Defaults still point to v1. No cells run.
