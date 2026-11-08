@@ -95,6 +95,16 @@ def slice_map(targets_by_id, min_bin=MIN_BIN, splits=None):
     return labels, report
 
 
+def restrict_to_final(targets_by_id, records, final_path):
+    """Keep only targets listed in targets_final.jsonl (and their records). Every final id must exist."""
+    final_ids = {json.loads(l)["target_id"] for l in Path(final_path).read_text(encoding="utf-8").splitlines() if l.strip()}
+    unknown = final_ids - set(targets_by_id)
+    if unknown:
+        raise ValueError(f"{len(unknown)} id(s) in {final_path} are not in the targets file, e.g. {sorted(unknown)[:3]}")
+    return ({tid: t for tid, t in targets_by_id.items() if tid in final_ids},
+            [r for r in records if r["target_id"] in final_ids])
+
+
 def load_records(results_dir):
     records = []
     for path in sorted(Path(results_dir).glob("cell_n*_k*.jsonl")):
@@ -334,10 +344,14 @@ def main():
     parser.add_argument("--cell", default="1,1")
     parser.add_argument("--n_trace", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--final", help="targets_final.jsonl: analyse only these targets (hand-reviewed keep = y)")
     args = parser.parse_args()
 
     targets = {json.loads(l)["target_id"]: json.loads(l) for l in Path(args.targets).read_text(encoding="utf-8").splitlines() if l.strip()}
     records = load_records(args.results)
+    if args.final:
+        targets, records = restrict_to_final(targets, records, args.final)
+        print(f"restricted to {len(targets)} targets from {args.final} ({len(records)} records)")
     if args.trace:
         cell = list(map(int, args.cell.split(",")))
         recs = [r for r in records if r["cell"] == cell and not r["fix"]]

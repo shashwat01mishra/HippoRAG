@@ -652,6 +652,19 @@ def test_review_keep_marks_to_final(target):
         read_marks(text.replace("| y | 1 |", "| maybe | 1 |"))             # invalid mark
 
 
+def test_analysis_restrict_to_final(tmp_path):
+    from experiments.extension.analysis import restrict_to_final
+    targets = {"a": {"target_id": "a"}, "b": {"target_id": "b"}}
+    records = [{"target_id": "a"}, {"target_id": "b"}, {"target_id": "b"}]
+    final = tmp_path / "final.jsonl"
+    final.write_text(json.dumps({"target_id": "b"}) + "\n")
+    t, r = restrict_to_final(targets, records, final)
+    assert list(t) == ["b"] and len(r) == 2
+    final.write_text(json.dumps({"target_id": "zzz"}) + "\n")
+    with pytest.raises(ValueError):
+        restrict_to_final(targets, records, final)
+
+
 def test_v4_one_question_per_passage():
     from experiments.extension.select_targets_v4 import anchors_one_per_passage
     twin = json.loads(json.dumps(SAMPLE))

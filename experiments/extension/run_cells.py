@@ -20,8 +20,10 @@ Run from the repo root:
     .venv/bin/python experiments/extension/run_cells.py --dry-run [--timings T.json] [--long_context]
 """
 import argparse
+import collections
 import json
 import os
+import random
 import socket
 import subprocess
 import sys
@@ -251,39 +253,71 @@ def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), reh
     stats["verify"] = [l for l in guard.stdout.splitlines() if "needing OpenIE" in l or "cached OpenIE" in l]
     if guard.returncode != 0:
         raise SystemExit(f"ABORT n={n},k={k}: OpenIE guard failed\n{guard.stdout}\n{guard.stderr[-2000:]}")
+    stats["gates"] = {"openie_0_chunks": True}           # verify script passed (else SystemExit above)
     frozen = vectors.FrozenEmbedder(table)
     try:
         t0 = time.time()
         rag = AttributionHippoRAG(global_config=capture_config(str(prefix)))
         stats["load_s"] = time.time() - t0
+        # Gate: the real embedding model must never be called inside a cell.
+        real_calls = {"n": 0}
+
+        def forbidden_embed(*a, **kw):
+            real_calls["n"] += 1
+            raise RuntimeError("GATE: the real embedding model was called inside a cell")
+        rag.embedding_model.batch_encode = forbidden_embed
         rag.install_frozen_embedder(frozen)
         calls = {"filter_new": 0, "filter_hit": 0}
         infer = _KeepTopTwo().infer if rehearsal else rag.rerank_filter.llm_infer_fn
+        prompts, current = collections.defaultdict(list), {"q": None}
 
         def counting_infer(*a, **kw):
+            msgs = a[0] if a else kw.get("messages")
+            prompts[current["q"]].append(json.dumps(msgs, sort_keys=True))
             res = infer(*a, **kw)
             calls["filter_hit" if res[2] else "filter_new"] += 1
             return res
         rag.rerank_filter.llm_infer_fn = counting_infer
         t0 = time.time()
-        stats["index"] = index_cell(rag, variants, frozen)
+        stats["index"] = index_cell(rag, variants, frozen)       # OpenIE replaced by a raising sentinel inside
         stats["index_s"] = time.time() - t0
         t0 = time.time()
         rag.preload_query_vectors(table, [t["question"] for t in targets])
         stats["prepare_s"] = time.time() - t0
         injected = {v["chunk_id"] for v in variants}
+        names, store_ids = set(rag.graph.vs["name"]), set(rag.chunk_embedding_store.get_all_ids())
+        missing = sorted(c for c in injected if c not in names or c not in store_ids or c not in rag.passage_node_keys)
+        _gate(stats, "injected_passages_present", not missing, f"{len(missing)} injected chunk(s) missing, e.g. {missing[:3]}")
         t0 = time.time()
         with open(out_path, "w", encoding="utf-8") as f:
             for t in targets:
                 old, new, gold_other = ids_for(t, samples[t["sample_index"]], variants)
+                current["q"] = t["question"]
                 for arm in arms:
                     rag.apply_fix = arm == "fix"
                     rec = rag.attribute(t, old, new, gold_other, injected)
                     rec.update(cell=[n, k], group=group, rehearsal=rehearsal)
                     f.write(json.dumps(rec, ensure_ascii=False, default=float) + "\n")
         stats["per_query_s"] = (time.time() - t0) / (len(arms) * len(targets))
+        stats["rows_written"] = len(targets) * len(arms)
+        # Gate: the filter prompt is identical across the arms for every question.
+        bad = [t["target_id"] for t in targets if len(prompts[t["question"]]) != len(arms) or len(set(prompts[t["question"]])) != 1]
+        _gate(stats, "filter_prompt_identical_across_arms", not bad, f"{len(bad)} question(s) differ, e.g. {bad[:3]}")
+        # Gate: for 5 random questions, the traced ranking equals upstream HippoRAG.retrieve() exactly.
+        from src.hipporag.HippoRAG import HippoRAG
+        rag.apply_fix = False
+        current["q"] = None
+        mismatches = []
+        for t in random.Random(f"gate|{n}|{k}|{group}").sample(targets, min(5, len(targets))):
+            ids, scores, _ = rag.trace_query(t["question"])
+            upstream = HippoRAG.retrieve(rag, [t["question"]], num_to_retrieve=len(ids))[0]
+            mine = [rag.chunk_embedding_store.get_row(rag.passage_node_keys[i])["content"] for i in ids]
+            if mine != upstream.docs or not np.array_equal(np.asarray(scores), np.asarray(upstream.doc_scores)):
+                mismatches.append(t["target_id"])
+        _gate(stats, "trace_matches_upstream_retrieve_5", not mismatches, f"mismatch for {mismatches}")
+        _gate(stats, "embedding_api_calls_0", real_calls["n"] == 0, f"{real_calls['n']} real embedding call(s)")
         stats["filter_calls"] = calls
-        stats["embedding_api_calls"] = 0
+        stats["embedding_api_calls"] = real_calls["n"]
         stats["frozen_lookups"] = frozen.calls
         rag.close()
         after = _inodes(save_dir)
@@ -292,6 +326,13 @@ def execute_cell(n, k, targets, samples, root, table, arms=("nofix", "fix"), reh
         if rehearsal and save_dir.exists():
             remove_cell(save_dir)
     return stats
+
+
+def _gate(stats, name, ok, detail):
+    """Structural gate: record pass/fail; abort the run on failure. Never inspects result metrics."""
+    stats.setdefault("gates", {})[name] = bool(ok)
+    if not ok:
+        raise SystemExit(f"GATE FAILED cell {stats['cell']} group {stats['group']}: {name}: {detail}")
 
 
 def rehearse(args):
