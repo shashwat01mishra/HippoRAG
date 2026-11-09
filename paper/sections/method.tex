@@ -1,0 +1,95 @@
+\section{Method and Setup}\label{sec:method}
+
+\textbf{Data and models.} MuSiQue~\cite{trivedi2022musique} as released with HippoRAG~2: 1,000 questions over a corpus
+of 11,656 passages. Every LLM role uses gpt-4o-mini (OpenIE, the recognition filter, the reader, and the target
+generator, checker and probe below) and every embedding uses text-embedding-3-small, instead of the paper's
+Llama-3.3-70B and NV-Embed-v2. Calls go through an OpenAI-compatible gateway at temperature 0. The OpenIE triples are
+the authors' released gpt-4o-mini extractions, so indexing the corpus makes no OpenIE calls. Reproduction and
+extension both run the unmodified \texttt{src/} (tag \texttt{upstream-base}); extension code subclasses HippoRAG and
+never edits it.
+
+\subsection{Counterfactual targets}\label{sec:targets}
+A target is a question whose answer is the object $o$ of exactly one cached triple $(s, r, o)$ across its supporting
+passages, with $s$ and $o$ verbatim in that passage, $o$ not in its title and not inside another entity of its triples.
+Relations where the subject already has two or more distinct objects in the corpus are dropped (a swap on a
+multi-valued relation adds a value rather than correcting one). The corrected passage replaces $o$ by a counterfactual
+$o'$ in the text and in the passage's cached triples. Choosing $o'$ took five iterations, each changed for a stated
+reason:
+\begin{itemize}
+\item[v1] $o'$ drawn at random from objects seen with the same relation elsewhere. Many swaps were implausible
+(``Brooklyn College is part of the FA Cup'').
+\item[v2] gpt-4o-mini picks $o'$ from the 8 same-relation objects nearest to $o$ in embedding space, or answers
+``none'', and states whether the relation is single-valued. The single-valued question was ineffective (284 yes, 1
+no); the corpus filter above does that work. Most picks were still implausible.
+\item[v3] A 1--5 plausibility rating kept only 32 of 158 picks, from just 21 distinct gold passages: several questions
+share a gold passage and therefore an identical swap. From here on the unit is the distinct gold passage, with one
+question per passage chosen by a seeded draw, and $n$ counts distinct swaps.
+\item[v4] gpt-4o-mini generates three replacements of the same fine-grained type that are plausible in the exact
+sentence and false; the first passing the offline checks (not $o$, not an answer alias, no substring either way, not in
+the question's own paragraphs, the same surface shape, no doubled token at the swap boundary) is used. The 1--5 rater
+kept 58 of 132, but it scored truth rather than believability: it rejected swaps whose true value it knew, which would
+bias the sample towards facts the model does not know.
+\item[v5] The rater is replaced by three yes/no checks that explicitly ignore the true value: same fine-grained type,
+grammatical and coherent, and no impossibility a reader who does not know the fact would spot. A separate closed-book
+probe, given the gold passage's title, subject and relation, records whether the model knows $o$
+(\emph{model\_knows\_o}); it is a covariate, not a filter.
+\end{itemize}
+The v5 funnel: 139 distinct gold passages pass the anchor and single-valued rules; 132 have a generated $o'$ passing the
+offline checks; 125 pass all three checks; a seeded cap keeps 120. Of these, the probe answers $o$ for 48 and not for
+72; $o'$ is absent from the corpus for 62, occurs in 1--9 passages for 41 and in 10 or more for 17 (passages whose
+triples contain the entity). Every swap is then reviewed by hand; the analysis uses only the kept swaps
+(\todo{final count after hand review}). Analysis splits by a covariate only where every bin has at least 15 swaps.
+
+\subsection{Injection, grid and systems}\label{sec:grid}
+\textbf{Swap and variants.} The swap is deterministic: $o \to o'$ at word boundaries in the passage body, and in triple
+fields that equal $o$ exactly. Extra copies of the old passage and copies of the corrected passage differ only in a
+title tag (four hex characters of an MD5 of target, role and copy index), so each copy is a distinct chunk while
+carrying identical triples. Identical triples collapse to one fact whose edge weight grows by one per passage; a copy's
+text does not depend on the grid cell. The injected triples are written into the OpenIE cache under the same
+provenance stamp, so indexing makes no OpenIE call.
+
+\textbf{Grid.} Old support $n \in \{1, 3\}$ (the original gold passage plus $n-1$ copies) crosses corrections
+$k \in \{0, 1, 2, 3, 5\}$. All targets are injected into one index per cell, cloned from the base index with APFS
+copy-on-write and indexed incrementally. Targets that share a normalised entity or a gold passage are placed in
+different collision-free groups by greedy colouring, and each group gets its own index per cell (two groups, of 115
+and 5 swaps before hand review). Every injected passage, new fact, new entity and question is embedded once and the
+vectors are reused in every cell, because repeated embedding calls are not bit-identical.
+
+\textbf{Systems.} Three systems are compared on the same index and the same frozen vectors: \emph{dense} retrieval,
+\emph{HippoRAG~2} as released, and \emph{HippoRAG~2 + fix}. The fix runs after the recognition filter: if two kept facts
+share subject and relation but differ in object, it keeps the more recently inserted one (most recent insertion among
+the passages asserting each fact; the base corpus is oldest) and drops the other. Detection is exact string match on the
+normalised $(s, r)$. Because the corrected triple shares $s$ and $r$ with the old one by construction, this is an
+\emph{oracle} detector: the fix measures resolution under perfect detection, and detection quality is out of scope.
+Facts other than the target's that the fix drops (possible for multi-valued relations re-asserted by a copy) are
+counted and reported as collateral drops.
+
+\subsection{Metrics and attribution}\label{sec:metrics}
+For each target and cell: \emph{correction@5}, whether any corrected passage is in the top 5 ($k \ge 1$);
+\emph{contamination@5}, the number of old passages in the top 5; and whether the best corrected passage
+\emph{outranks}, \emph{near-ties} or \emph{loses} to the best old passage. The third uses a relative tolerance $\tau$
+(near-tie when $|s_\text{new} - s_\text{old}| \le \tau \max(|s_\text{new}|, |s_\text{old}|)$) applied at analysis time
+to the raw scores (PPR for HippoRAG, cosine for dense), reported at $\tau \in \{0, 0.5, 1, 2\}\%$. Differences between
+systems are reported per $(n, k)$ with paired bootstrap 95\% intervals over targets (10,000 resamples, seed 0).
+
+Every HippoRAG failure ($k \ge 1$, correction not in the top 5) is attributed to the first stage that fails
+(Fig.~\ref{fig:pipeline}): \textbf{A} the new fact $(s, r, o')$ is not among the five candidates; \textbf{B} the filter
+does not keep it (after the fix, for the fix arm); \textbf{C} $o'$ receives no reset mass (including the dense
+fallback); \textbf{D} the PPR margin favours the old passage beyond $\tau$; otherwise the correction is outside the top 5
+although it ties (\textbf{E}$_\text{tie}$) or outranks (\textbf{E}$_\text{crowd}$) the old passage. The order and the
+stage predicates are configurable. The per-query trace is computed by re-running upstream \texttt{retrieve()}'s
+per-query loop with logging overrides; it is checked to reproduce upstream's ranking and scores exactly.
+
+\textbf{Long-context reader.} At the four corners $(n, k) \in \{(1,1), (1,5), (3,1), (3,5)\}$ the reader receives the
+question's own MuSiQue paragraphs plus every injected copy for that target, in a seeded random order, with HippoRAG's
+reader prompt. Its answer is labelled $o'$, $o$, both or neither by normalised phrase containment. This separates
+retriever failures from reader failures.
+
+\subsection{Blind protocol}\label{sec:blind}
+The full grid, the fix arm and the long-context corners were run before the hand review of the swaps and before the
+prediction was written, and no result was inspected. Each (cell, group) run had to pass structural gates or abort:
+zero OpenIE calls; zero embedding calls (the embedding client was patched to raise); every injected passage present in
+the graph and the stores; an identical filter prompt in the fix and no-fix arms for every question; and, for five
+random questions, a traced ranking identical to upstream \texttt{retrieve()}. All 20 (cell, group) runs passed. The
+SHA-256 of every result file was then recorded with the timestamp 2026-11-09 04:16:16 IST (commit \texttt{c68a13e}),
+before any analysis. \todo{commit hash of the prediction, written before unsealing}.

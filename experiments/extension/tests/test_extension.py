@@ -652,6 +652,31 @@ def test_review_keep_marks_to_final(target):
         read_marks(text.replace("| y | 1 |", "| maybe | 1 |"))             # invalid mark
 
 
+def test_paired_bootstrap_and_latex():
+    from experiments.extension.analysis import bootstrap_all, latex_tables, paired_bootstrap
+    rows = []
+    for i in range(40):
+        for arm, corr in (("dense", i % 4 == 0), ("hipporag", i % 2 == 0), ("hipporag_fix", True)):
+            rows.append({"arm": arm, "n": 1, "k": 1, "target_id": f"t{i}", "correction_at5": corr,
+                         "contamination_at5": 0, **{f"outcome@{t}": "outranks" for t in (0.0, 0.005, 0.01, 0.02)}})
+            rows.append({"arm": arm, "n": 1, "k": 0, "target_id": f"t{i}", "correction_at5": None,
+                         "contamination_at5": 1, **{f"outcome@{t}": None for t in (0.0, 0.005, 0.01, 0.02)}})
+    res = paired_bootstrap(rows, "correction_at5", "hipporag", "dense", n_boot=2000, seed=0)
+    assert len(res) == 1 and res[0]["k"] == 1                              # k = 0 skipped (undefined)
+    e = res[0]
+    assert e["N"] == 40 and e["diff"] == pytest.approx(0.25) and e["ci_lo"] < 0.25 < e["ci_hi"]
+    assert paired_bootstrap(rows, "correction_at5", "hipporag", "dense", n_boot=2000, seed=0) == res   # deterministic
+    same = paired_bootstrap(rows, "contamination_at5", "hipporag", "dense", n_boot=500)
+    assert all(x["diff"] == 0 and x["ci_lo"] == x["ci_hi"] == 0 for x in same)            # paired: no spread
+    boot = bootstrap_all(rows, n_boot=200)
+    table = [{"arm": a, "n": 1, "k": k, "slice": "all", "correction_at5": None if k == 0 else 0.5, "contamination_at5": 0.0}
+             for a in ("dense", "hipporag", "hipporag_fix") for k in (0, 1)]
+    tex = latex_tables(table, boot, [], rows)
+    assert set(tex) == {"tab_main.tex", "tab_bootstrap.tex", "tab_attribution.tex", "tab_tolerance.tex"}
+    assert all(t.startswith("\\begin{tabular}") and t.rstrip().endswith("\\end{tabular}") for t in tex.values())
+    assert "+0.25 [" in tex["tab_bootstrap.tex"]
+
+
 def test_analysis_restrict_to_final(tmp_path):
     from experiments.extension.analysis import restrict_to_final
     targets = {"a": {"target_id": "a"}, "b": {"target_id": "b"}}

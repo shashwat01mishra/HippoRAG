@@ -296,3 +296,26 @@ f21453e92bbdd4745a2f0b3596e323b4620be388b64c2c48277b976cdbb6368b  results/long_c
 3fad9b144c2c1f7832a4397c3683b4df7834b8415ff98b31d9a41bb30dcc257f  vectors.npz
 ```
 - Next: hand review → `finalize_targets.py` → commit the prediction → only then `analysis.py --final`.
+
+## 2026-11-09: Session 7: paper draft (results-independent parts), theory check, analysis plumbing (offline, ₹0)
+
+- **Blind throughout.** I didn't open `results/extension/`, `outputs/extension/*/results`, the extension logs or the extension cost lines, and `analysis.py` ran only on the scratchpad rehearsal records (random vectors, fake filter). No API calls; web searches only, for citations.
+- **Paper** (`paper/`, IEEEtran, tectonic 0.17.0 via Homebrew). Compiles to 6 pages with no overfull boxes.
+  - Abstract, Introduction (with contributions) and Discussion are empty stubs.
+  - Written sections: Related work, Background (stages A–E with the code's defaults), Theory, Method and setup (target pipeline v1→v5 and why each changed, swap, grid, systems, metrics, attribution, fix as oracle detection, long-context corners, blind protocol and seal), Reproduction results, Limitations.
+  - Extension results: table and figure stubs `\IfFileExists`-include `paper/tables/tab_{main,bootstrap,attribution,tolerance}.tex` and `paper/figs/results/*.png`.
+- **Citations.** All 16 entries in `paper/refs.bib` were verified by web search: HippoRAG, HippoRAG 2, GraphRAG, LightRAG, RAPTOR, PoisonedRAG, GraphRAG under Fire, KEPo, Defense against knowledge poisoning on GraphRAG (ACL 2026 short), PURPOSE, Zep, Mem0, Longpre et al. 2021, ClashEval, MuSiQue. Two author lists are abbreviated ("and others": GraphRAG, KEPo) because the search confirmed only the leading authors. No citation is `\todo{}`.
+- **Theory** (`experiments/theory/verify_margin.py` + pytest wrapper). Sympy re-derivation from the toy graph's balance equations confirms every given formula:
+  - Graph A: x = y = d/((1+d)(n+k));
+  - Graph B: x = y = d/((2+d)(n+k));
+  - the Graph B margin Δ, with r_e coefficient 0;
+  - the seed-rule corollary: Δ ∝ dσ(1/n² − 1/k²).
+  - Also derived: the Graph A margin, 2(1−d)/(2−d²)·[d(r_D/n − r_M/k) + (r_o − r_m)], also independent of r_e.
+  - igraph PRPACK on the full toy graph agrees to 2.2e-16 over 480 random resets (n, k ∈ {1,2,3,5}, d ∈ {0.3, 0.5, 0.85}).
+- **Figures** (`paper/figs/make_figures.py` → PDF + 300-dpi PNG): `pipeline` (stages A–E and the failure point at each), `toy_graph`, `repro_gap` (n = 100 slice vs n = 500 vs the paper, with the bootstrap CIs from Session 4).
+- **Analysis plumbing.**
+  - `analysis.py` now writes `bootstrap.csv`: paired bootstrap per (n, k) for HippoRAG − dense and fix − no-fix, on correction@5 and contamination@5 (10,000 resamples, seed 0, percentile CI).
+  - It also writes LaTeX tables (`--tex_dir`, booktabs) that the paper's stubs `\input` directly.
+  - Tested by unit test and end to end on the rehearsal records (scratchpad only).
+- **Reproducibility.** `REPRODUCIBILITY.md` (the upstream `README.md` is left unchanged): clean clone → every number, data provenance, cost per step. The extension's filter-step cost is given as the dry-run bound only, since the actual figure depends on cache hits. Environment lock: `env/requirements-lock.txt` (`uv pip freeze`, editable install as `-e .`).
+- Tests: `pytest experiments` 40/40, upstream 93/93. `src/` + `main.py`: 0-line diff vs `upstream-base`.

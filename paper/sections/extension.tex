@@ -1,0 +1,56 @@
+\section{Update-Resistance Results}\label{sec:extension}
+% Stubs only. Fill by running, after the prediction is committed:
+%   .venv/bin/python experiments/extension/analysis.py --results results/extension/grid_v5_20261109 \
+%       --targets experiments/extension/data/targets_v5.jsonl \
+%       --final experiments/extension/data/targets_final.jsonl \
+%       --out <analysis_dir> --tex_dir paper/tables
+% and copying <analysis_dir>/*.png into paper/figs/results/.
+
+\todo{results text: written after unsealing.}
+
+\begin{table}[t]
+\centering
+\caption{Correction@5 and contamination@5 per cell and system (\texttt{tables/tab\_main.tex}).}
+\label{tab:main}
+\IfFileExists{tables/tab_main.tex}{\resizebox{\columnwidth}{!}{\input{tables/tab_main.tex}}}{\todo{tab\_main.tex}}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Paired bootstrap 95\% intervals for correction@5: HippoRAG 2 $-$ dense, and fix $-$ no fix
+(\texttt{tables/tab\_bootstrap.tex}).}
+\label{tab:bootstrap}
+\IfFileExists{tables/tab_bootstrap.tex}{\resizebox{\columnwidth}{!}{\input{tables/tab_bootstrap.tex}}}{\todo{tab\_bootstrap.tex}}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{First-failure stage per cell, $\tau = 1\%$ (\texttt{tables/tab\_attribution.tex}).}
+\label{tab:attribution}
+\IfFileExists{tables/tab_attribution.tex}{\resizebox{\columnwidth}{!}{\input{tables/tab_attribution.tex}}}{\todo{tab\_attribution.tex}}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Outranks / near-tie / loses, pooled over $k \ge 1$, at each tolerance (\texttt{tables/tab\_tolerance.tex}).}
+\label{tab:tolerance}
+\IfFileExists{tables/tab_tolerance.tex}{\resizebox{\columnwidth}{!}{\input{tables/tab_tolerance.tex}}}{\todo{tab\_tolerance.tex}}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figs/results/correction_at5.png}{\includegraphics[width=\columnwidth]{figs/results/correction_at5.png}}{\todo{figs/results/correction\_at5.png}}
+\caption{Correction@5 against $k$ per $n$ and system (\texttt{correction\_at5.png}).}
+\label{fig:correction}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figs/results/attribution.png}{\includegraphics[width=\columnwidth]{figs/results/attribution.png}}{\todo{figs/results/attribution.png}}
+\caption{First-failure stage per cell, HippoRAG 2 and HippoRAG 2 + fix (\texttt{attribution.png}).}
+\label{fig:attribution}
+\end{figure}
+
+\todo{long-context corners table: labels $o'$ / $o$ / both / neither from
+\texttt{long\_context\_n\{1,3\}\_k\{1,5\}.jsonl}; split by model\_knows\_o where both bins have $\ge 15$ swaps.}
+\todo{fix collateral drops (\texttt{summary.md}).}

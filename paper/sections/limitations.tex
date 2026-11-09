@@ -1,0 +1,29 @@
+\section{Limitations}\label{sec:limitations}
+
+\textbf{Synthetic counterfactuals.} Every correction is a generated, false $o'$ swapped into an otherwise identical
+passage. Real corrections arrive in differently worded passages with different neighbouring facts, and are true. Here
+the old and corrected passages differ only in $o \to o'$ and a title tag, which isolates the mechanism but is a best
+case for the corrected passage's dense similarity and a worst case for paraphrase diversity. Copies of a passage are
+exact apart from the tag, so the grid measures redundancy, not independent corroboration.
+
+\textbf{One model in every LLM role.} gpt-4o-mini extracts the triples, filters facts, reads, generates $o'$, checks
+the swaps and probes the model's knowledge. The filter and the probe therefore share a prior, which is what
+\emph{model\_knows\_o} is meant to expose, but it also means that generator and checker biases are correlated, and no
+result transfers to the paper's Llama-3.3-70B and NV-Embed-v2 configuration without a rerun.
+
+\textbf{Oracle detection.} The fix receives contradictions by exact match on $(s, r)$, which is perfect here by
+construction. Real contradictions need relation and entity canonicalisation, so the fix's effect is an upper bound on
+what contradiction-aware seeding can achieve with this resolution rule. Recency comes from insertion order, and
+corrections are always inserted after old copies.
+
+\textbf{Sample size and selection.} The unit is the distinct gold passage, and at most 139 MuSiQue passages satisfy the
+anchor and single-valued rules; 120 swaps were run and fewer survive hand review (\todo{final count}). Covariate splits
+are reported only where each bin has at least 15 swaps. Targets were filtered by an LLM, so the sample is not random over
+MuSiQue facts; the probe that defines \emph{model\_knows\_o} is noisy when a subject is ambiguous even with its title.
+
+\textbf{Reproduction subsets.} The reproduction uses the first $N$ questions of the released sample ($N = 100$ and
+$500$), not a random draw, and not all 1,000; the base index always holds the full corpus. Answer-level reruns are not
+bit-reproducible because query embeddings are re-fetched.
+
+\textbf{Scope.} One dataset (MuSiQue), one retriever configuration (the released defaults), single-triple swaps, and
+only the retrieval-side intervention; the reader is studied only at the four long-context corners.

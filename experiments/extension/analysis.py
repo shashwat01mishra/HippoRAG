@@ -25,6 +25,8 @@ import collections
 import json
 import random
 import sys
+
+import numpy as np
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -171,6 +173,101 @@ def attribution_counts(rows, tolerances=TOLERANCES):
             c = collections.Counter(r[f"stage@{tol}"] for r in rs)
             out.append({"arm": arm, "n": n, "k": k, "slice": sl, "tol": tol, "N": len(rs),
                         **{s: c.get(s, 0) for s in ("ok", *STAGE_ORDER, "unattributed")}})
+    return out
+
+
+# ------------------------------------------------------------------ paired bootstrap ------------------
+COMPARISONS = (("hipporag", "dense"), ("hipporag_fix", "hipporag"))   # (arm a, arm b): report a - b
+BOOT_METRICS = ("correction_at5", "contamination_at5")
+
+
+def paired_bootstrap(rows, metric, arm_a, arm_b, n_boot=10000, seed=0, alpha=0.05):
+    """Per (n, k): mean of (a - b) over targets present in both arms, with a percentile CI from resampling targets
+    (pairs kept together). Cells where the metric is undefined (correction@5 at k = 0) are skipped."""
+    by = collections.defaultdict(dict)
+    for r in rows:
+        if r["arm"] in (arm_a, arm_b) and r[metric] is not None:
+            by[(r["n"], r["k"], r["arm"])][r["target_id"]] = float(r[metric])
+    out = []
+    for n, k in sorted({(r["n"], r["k"]) for r in rows}):
+        a, b = by.get((n, k, arm_a), {}), by.get((n, k, arm_b), {})
+        ids = sorted(set(a) & set(b))
+        if not ids:
+            continue
+        diffs = np.array([a[t] - b[t] for t in ids])
+        rng = np.random.default_rng(seed)
+        boots = diffs[rng.integers(0, len(ids), size=(n_boot, len(ids)))].mean(axis=1)
+        lo, hi = np.percentile(boots, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+        out.append({"metric": metric, "a": arm_a, "b": arm_b, "n": n, "k": k, "N": len(ids),
+                    "mean_a": float(np.mean([a[t] for t in ids])), "mean_b": float(np.mean([b[t] for t in ids])),
+                    "diff": float(diffs.mean()), "ci_lo": float(lo), "ci_hi": float(hi), "n_boot": n_boot, "seed": seed})
+    return out
+
+
+def bootstrap_all(rows, n_boot=10000, seed=0):
+    return [e for metric in BOOT_METRICS for a, b in COMPARISONS for e in paired_bootstrap(rows, metric, a, b, n_boot, seed)]
+
+
+# ------------------------------------------------------------------ LaTeX export ----------------------
+TEX_ARM = {"dense": "Dense", "hipporag": "HippoRAG\\,2", "hipporag_fix": "+\\,fix"}
+
+
+def _f(v, digits=2):
+    return "--" if v is None else f"{v:.{digits}f}"
+
+
+def latex_tables(table, boot, attrib, rows, tol=0.01):
+    """{filename: LaTeX tabular} for the paper's \\input stubs (booktabs; slice 'all')."""
+    cells = sorted({(e["n"], e["k"]) for e in table})
+    look = {(e["arm"], e["n"], e["k"]): e for e in table if e["slice"] == "all"}
+    out = {}
+
+    lines = ["\\begin{tabular}{rr ccc ccc}", "\\toprule",
+             " & & \\multicolumn{3}{c}{correction@5} & \\multicolumn{3}{c}{contamination@5} \\\\",
+             "\\cmidrule(lr){3-5}\\cmidrule(lr){6-8}",
+             "$n$ & $k$ & " + " & ".join(TEX_ARM[a] for a in ARMS) + " & " + " & ".join(TEX_ARM[a] for a in ARMS) + " \\\\",
+             "\\midrule"]
+    for n, k in cells:
+        corr = [_f(look.get((a, n, k), {}).get("correction_at5")) for a in ARMS]
+        cont = [_f(look.get((a, n, k), {}).get("contamination_at5")) for a in ARMS]
+        lines.append(f"{n} & {k} & " + " & ".join(corr) + " & " + " & ".join(cont) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    out["tab_main.tex"] = "\n".join(lines) + "\n"
+
+    def ci(e):
+        return f"{e['diff']:+.2f} [{e['ci_lo']:+.2f}, {e['ci_hi']:+.2f}]"
+    bl = {(e["metric"], e["a"], e["b"], e["n"], e["k"]): e for e in boot}
+    lines = ["\\begin{tabular}{rr cc}", "\\toprule",
+             "$n$ & $k$ & HippoRAG\\,2 $-$ dense & fix $-$ no fix \\\\", "\\midrule"]
+    for n, k in cells:
+        if k == 0:
+            continue
+        pair = [bl.get(("correction_at5", a, b, n, k)) for a, b in COMPARISONS]
+        lines.append(f"{n} & {k} & " + " & ".join(ci(e) if e else "--" for e in pair) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    out["tab_bootstrap.tex"] = "\n".join(lines) + "\n"
+
+    stages = ("ok", *STAGE_ORDER)
+    head = {"ok": "ok", "A": "A", "B": "B", "C": "C", "D": "D", "E_tie": "E$_\\text{tie}$", "E_crowd": "E$_\\text{crowd}$"}
+    lines = ["\\begin{tabular}{lrr " + "r" * len(stages) + "}", "\\toprule",
+             "Arm & $n$ & $k$ & " + " & ".join(head[s] for s in stages) + " \\\\", "\\midrule"]
+    for e in attrib:
+        if e["slice"] == "all" and e["tol"] == tol:
+            lines.append(f"{TEX_ARM[e['arm']]} & {e['n']} & {e['k']} & " + " & ".join(str(e[s]) for s in stages) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    out["tab_attribution.tex"] = "\n".join(lines) + "\n"
+
+    lines = ["\\begin{tabular}{l " + "c" * len(TOLERANCES) + "}", "\\toprule",
+             "Arm & " + " & ".join(f"$\\tau={100 * t:g}\\%$" for t in TOLERANCES) + " \\\\", "\\midrule"]
+    for arm in ARMS:
+        rs = [r for r in rows if r["arm"] == arm and r["k"] > 0]
+        cellv = []
+        for t in TOLERANCES:
+            outs = [r[f"outcome@{t}"] for r in rs if r[f"outcome@{t}"] is not None]
+            cellv.append("/".join(_f(outs.count(o) / len(outs)) if outs else "--" for o in OUTCOMES))
+        lines.append(f"{TEX_ARM[arm]} & " + " & ".join(cellv) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    out["tab_tolerance.tex"] = "\n".join(lines) + "\n"
     return out
 
 
@@ -345,6 +442,8 @@ def main():
     parser.add_argument("--n_trace", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--final", help="targets_final.jsonl: analyse only these targets (hand-reviewed keep = y)")
+    parser.add_argument("--tex_dir", help="also write LaTeX tables here (the paper inputs paper/tables/*.tex)")
+    parser.add_argument("--n_boot", type=int, default=10000)
     args = parser.parse_args()
 
     targets = {json.loads(l)["target_id"]: json.loads(l) for l in Path(args.targets).read_text(encoding="utf-8").splitlines() if l.strip()}
@@ -367,6 +466,13 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     write_csv(out / "metrics.csv", table)
     write_csv(out / "attribution.csv", attrib)
+    boot = bootstrap_all(rows, n_boot=args.n_boot, seed=args.seed)
+    write_csv(out / "bootstrap.csv", boot)
+    tex_dir = Path(args.tex_dir) if args.tex_dir else out / "tex"
+    tex_dir.mkdir(parents=True, exist_ok=True)
+    for name, body in latex_tables(table, boot, attrib, rows, tol=args.plot_tol).items():
+        (tex_dir / name).write_text(body, encoding="utf-8")
+    print(f"wrote bootstrap.csv and LaTeX tables to {tex_dir}")
     ks_all = sorted({r["k"] for r in rows})
     plot_lines(table, "correction_at5", "Correction in top 5", "correction@5", out / "correction_at5.png",
                [k for k in ks_all if k > 0], ylim=(-0.03, 1.03))

@@ -1,0 +1,38 @@
+\section{Related Work}\label{sec:related}
+
+\textbf{Graph-based retrieval memory.}
+HippoRAG~\cite{gutierrez2024hipporag} builds a schemaless knowledge graph from a corpus with an LLM and retrieves
+passages by Personalized PageRank (PPR) seeded from query entities, modelled on the hippocampal indexing theory of
+memory. HippoRAG~2~\cite{gutierrez2025hipporag2} adds passage nodes to the graph and an LLM recognition-memory filter
+over candidate facts, and frames the system as non-parametric continual learning: new knowledge is absorbed by
+indexing, without changing model weights. GraphRAG~\cite{edge2024graphrag} builds an entity graph and pre-generated
+community summaries for corpus-level sensemaking queries. LightRAG~\cite{guo2024lightrag} combines graph-based
+indexing with dual-level (entity and theme) retrieval and an incremental update algorithm. RAPTOR~\cite{sarthi2024raptor}
+recursively clusters and summarises chunks into a tree and retrieves across its levels. None of these evaluates what
+happens when newly indexed text contradicts what the index already holds; that is the question studied here.
+
+\textbf{Poisoning retrieval-augmented generation.}
+PoisonedRAG~\cite{zou2025poisonedrag} shows that a few injected texts per target question can steer a RAG system to an
+attacker-chosen answer. For graph-based RAG, GraphRAG under Fire~\cite{liang2025graphragfire} reports that graph
+indexing resists simple poisoning but opens new attack surfaces, and exploits shared relations to poison many queries at
+once. KEPo~\cite{chen2026kepo} argues that text-level attacks fail against GraphRAG because the knowledge-graph
+abstraction reorganises injected text, and instead forges a chain of knowledge evolution ending in the poisoned fact.
+On the defence side, HoG-GRAG~\cite{noughabi2026defense} decomposes multi-hop questions and checks each hop for
+poisoning-induced inconsistencies, and PURPOSE~\cite{wang2026purpose} attacks the post-retrieval conflict-resolution
+step itself. To a retriever, an injected correction and an injected poison are the same operation: new passages that
+contradict stored ones. This work measures the benign side of that operation on HippoRAG~2, with the same
+injection mechanics but no adversarial optimisation of the injected text.
+
+\textbf{Memory systems with explicit updates.}
+Zep~\cite{rasmussen2025zep} maintains a bi-temporal knowledge graph for agent memory, recording when facts held and when
+they were ingested, so that superseded facts can be invalidated. Mem0~\cite{chhikara2025mem0} extracts salient facts from
+conversations and applies explicit update operations, with a graph variant. Contradiction-aware updating is therefore
+not new; the contradiction-aware seeding tested here is an intervention used to locate where HippoRAG~2 loses a
+correction, evaluated under oracle detection (Section~\ref{sec:method}).
+
+\textbf{Knowledge conflicts.}
+Longpre et al.~\cite{longpre2021entity} substitute answer entities in retrieved passages and find that reader models
+often fall back on memorised answers. ClashEval~\cite{wu2024clasheval} finds that LLMs adopt incorrect retrieved content
+over a correct prior in a large share of cases, and that adoption depends on the model's confidence in its prior. Both
+study the reader given a fixed context. Here the question is upstream: whether the retriever surfaces the corrected
+passage at all. The long-context arm (Section~\ref{sec:method}) connects the two by giving the reader every passage.

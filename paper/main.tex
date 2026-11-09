@@ -1,0 +1,49 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+
+% Inline to-do marker (no margin notes in two-column IEEEtran).
+\newcommand{\todo}[1]{\textcolor{red}{[\textsc{todo}: #1]}}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+
+\begin{document}
+
+\title{\todo{title}}
+
+\author{\IEEEauthorblockN{Shashwat \todo{full name}}
+\IEEEauthorblockA{BITS Pilani \todo{department, campus}\\
+\todo{email}}}
+
+\maketitle
+
+% ---------------------------------------------------------------- results-dependent: written after the analysis
+\begin{abstract}
+\todo{abstract: written after the blind analysis}
+\end{abstract}
+
+\section{Introduction}\label{sec:intro}
+\todo{introduction and contribution list: written after the blind analysis}
+
+% ---------------------------------------------------------------- results-independent sections
+\input{sections/related}
+\input{sections/background}
+\input{sections/theory}
+\input{sections/method}
+\input{sections/reproduction}
+\input{sections/extension}
+\input{sections/limitations}
+
+\section{Discussion}\label{sec:discussion}
+\todo{discussion: written after the blind analysis}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}
