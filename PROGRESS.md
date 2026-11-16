@@ -356,4 +356,26 @@ Brief: `notes/prediction.md` is not committed yet, so this session stays blind: 
 - Second pass (Claude on claude.ai, per the user): row 100 → y, row 112 → n. Rule added to `review_reasons.md`: drop if a criterion fails or the swap is obviously false to a general reader; keep if spotting it needs specialist knowledge. `finalize_targets.py`: **75 kept** (groups 73 + 2); o′ frequency absent 40 / 1–9 26 / ≥10 9 (split not used); model_knows_o no 44 / yes 31 (split used).
 - Integrity check over all 120 rows of `targets_v5.jsonl` (swapped body = body with o → o′ and nothing else; triples differ only by o → o′; anchor = (s, r, o)): **0 defects**. Row 88's data is intact; the unrelated text is a display fallback in `review_v5.md` (the sentence splitter breaks at "James J."). No row marked "broken: generator defect".
 - Specialist-knowledge keeps for the sensitivity report: rows 19, 25, 29, 45, 91, 100, 109, 114.
+- Committed as `6c56e00` before any result was opened.
+
+### Step 5: seal check and analysis (offline, ₹0) — done
+- **Seal: match.** All 26 sha256 lines of the Session 6 seal verify against `outputs/extension/grid_v5_20261109/` (25 result files + `vectors.npz`); the 25 `.jsonl` copies in `results/extension/grid_v5_20261109/` verify too.
+- `analysis.py --final targets_final.jsonl --out analysis/grid_v5_final` (N = 75; 1,500 records). LaTeX tables went to `analysis/grid_v5_final/tex/`, **not** `paper/tables/` (rule: don't edit `paper/`), so the paper's table stubs are still empty.
+- New `experiments/extension/phase_b.py` (funnel, filter keep rates, both-kept ties, n effect with CIs, pooled headline, fix detail, failure positions, long-context labels) → `analysis/grid_v5_final/phase_b.{json,md}`; sensitivity without the 8 specialist rows → `analysis/grid_v5_final_minus_specialist/`.
+- Headline (all from `analysis/grid_v5_final/phase_b.md` unless noted):
+  - correction@5 pooled over the 8 k ≥ 1 cells: dense 39.0 %, HippoRAG 2 41.5 %, + fix 41.7 %; HippoRAG 2 − dense +2.5 pts [−6.7, +11.3]; fix +0.2 pts [0.0, +0.5].
+  - n = 1 → 3: HippoRAG 2 −11.7 pts [−17.0, −6.7], dense −0.7 pts [−1.7, 0.0].
+  - The correction's fact is among the 5 candidate facts for 9 of 75 questions; the filter keeps 8 of those 9; both facts kept for 7. Failures by first stage: A 36–49 per cell, B 0 (`summary.md`).
+  - Long-context reader answers o′ in 7 / 26 / 1 / 16 of 75 at (1,1) / (1,5) / (3,1) / (3,5).
+  - Without the 8 specialist rows (N = 67): 38.4 % vs 39.2 %, −0.7 pts [−9.9, +8.6]; n effect −11.2 vs −0.7; fix +0.0.
+- Prediction scorecard: item 5b hit; items 1, 2, 3, 4, 5a miss; item 6's first falsifier fired (filter keeps 89 % of the corrections it sees); item 7 untestable (9 questions); item 8 untested.
+
+### Steps 6–9: brief, deck, viva, one-pager facts (≈ ₹0) — done
+- `RESULTS_BRIEF.md` (every number cites its file).
+- `deck/deck.tex` → `deck/deck.pdf` (tectonic; 10 main + 7 backup pages; custom minimal look), figures from `deck/make_figs.py` (reads the analysis files) plus `paper/figs/{pipeline,repro_gap,toy_graph}.pdf`; `deck/SPEAKER_NOTES.md` with a source per number. The palette validator from the dataviz skill could not be run (no `node` on this machine); the two series are blue vs gray with different markers and direct labels.
+- `VIVA.md` (34 questions, 3 "predict before you run") and `VIVA_ANSWERS.md` with file:line references. The three live tweaks were run to get the observed answers (`logs/demo_live_viva_20261116.log`, `--no_reader`, ≈ ₹0.00 each).
+- `ONE_PAGER_FACTS.md`. `CODE_MAP.md` updated for `phase_b.py` and `deck/make_figs.py`.
+- Not verified: "Section 6.3" of the HippoRAG 2 paper on slide 2 is from the user's outline; no file in the repo confirms the section number.
+- Tests: `pytest experiments` 40/40, upstream 93/93; `src/` + `main.py` 0-line diff vs `upstream-base`; `paper/` untouched.
+- **Session 8 spend ≈ ₹0.03** (estimate, list × 1.1; one reader call in a live tweak; key usage not checked). Cap for this brief: ₹50.
  Inherited from the upstream OpenIE cache (2,457 of 11,656 docs have NER disjoint from their own triples). No effect on the graph: nodes come from triples only (`src/hipporag/HippoRAG.py:564`); NER is used for stats.

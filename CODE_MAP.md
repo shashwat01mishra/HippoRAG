@@ -2,7 +2,7 @@
 
 Scope: every file under `experiments/`, plus `demo/` and `paper/figs/make_figures.py`. `src/` and `main.py` are byte-identical to tag `upstream-base` (`git diff --stat upstream-base -- src main.py` is empty). The upstream code itself is mapped in `notes/code-map.md`.
 
-"Deck" refers to the slide plan for Presentation 2 (slides 1–9 plus backups). The deck is not built yet (Phase B), so this column says which slide a script's output is meant for, not a number already on a slide. Line numbers are for commit `14deafc` plus this session's uncommitted `demo/` files; they drift with edits.
+"Deck" refers to the slide plan for Presentation 2 (slides 1–9 plus backups). The deck is `deck/deck.tex`; each number's source file is in `deck/SPEAKER_NOTES.md`. Line numbers are for commit `14deafc` plus this session's uncommitted `demo/` files; they drift with edits.
 
 Upstream functions are written `HippoRAG.method` and live in `src/hipporag/HippoRAG.py` unless noted.
 
@@ -154,7 +154,24 @@ Upstream functions are written `HippoRAG.method` and live in `src/hipporag/Hippo
   - LaTeX tables: `latex_tables` :219. Figures: `plot_lines` :329, `plot_stacks` :368. Trace printer: `print_trace` :401. Entry point: `main` :434.
 - **Out.** `metrics.csv`, `attribution.csv`, `bootstrap.csv`, `summary.md`, 4 PNGs (:467–513), and `paper/tables/tab_{main,bootstrap,attribution,tolerance}.tex`.
 - **Calls upstream.** None (it reads records).
-- **Deck.** Slides 7, 8 and 9: correction@5, contamination@5, outranks, attribution counts, fix vs no-fix CIs. **Not run on real results yet (blind until the prediction commit).**
+- **Deck.** Slides 7, 8 and 9: correction@5, contamination@5, outranks, attribution counts, fix vs no-fix CIs. First run on real results on 2026-11-16, after prediction commit `460c50a`: `analysis/grid_v5_final/`.
+
+### `phase_b.py` (369 lines)
+- **Purpose.** Offline supplement to `analysis.py` for the prediction items. `compute` :61 builds:
+  - the funnel (fact among the 5 candidates, kept by the filter, both kept) :68;
+  - filter keep rates overall and by `model_knows_o` :88;
+  - the both-kept tie and dense-agreement check :121;
+  - the n = 1 → 3 change with paired bootstrap :141;
+  - pooled correction@5 and contamination@5 :153;
+  - fix-vs-no-fix detail and other-gold recall :174;
+  - where failures sit :203;
+  - long-context labels :233.
+
+  `boot_ci` :40, `row_ids` :52 (review row number → target id, for `--drop_rows`), `markdown` :255, `main` :333.
+- **In.** `results/extension/grid_v5_20261109/*.jsonl`, `data/targets_v5.jsonl`, `data/targets_final.jsonl`, `data/review_v5.md`, `reproduce/dataset/musique.json`.
+- **Out.** `<out>/phase_b.json`, `phase_b.md`, `targets_used.txt` (`analysis/grid_v5_final/` and `analysis/grid_v5_final_minus_specialist/`).
+- **Calls upstream.** None (it reads records; uses `analysis.load_records`, `restrict_to_final`, `attrib_rag.outranks_old`).
+- **Deck.** Slide 7 (stale-copy change −11.7 vs −0.7), slide 8 (funnel 75 → 9 → 8 → 7, fix +0.2), slide 9 (prediction table), backup long-context table; `RESULTS_BRIEF.md` throughout.
 
 ### `tests/test_extension.py` (717 lines)
 - **Purpose.** Offline tests on a synthetic corpus, with a fake embedder (:68), fake LLM (:88) and fake OpenIE (:103), and the network blocked (:27). Key checks:
@@ -202,6 +219,11 @@ Upstream functions are written `HippoRAG.method` and live in `src/hipporag/Hippo
 
 ---
 
+### `deck/make_figs.py` (76 lines)
+- **Purpose.** Deck figures from the analysis outputs, with no hand-typed values: `correction` :28 (correction@5 vs k for n = 1 and n = 3, from `metrics.csv`) and `funnel` :53 (75 → 9 → 8 → 7 at n = 1, k = 1, from `phase_b.json`).
+- **Out.** `deck/figs/correction.pdf`, `deck/figs/funnel.pdf`. **Calls upstream.** None. **Deck.** Slides 7 and 8.
+
 ## `results/` (evidence copies, not code)
 - `results/musique_n500/`: per-query files and bootstrap outputs for the reproduction (README with sha256).
-- `results/extension/grid_v5_20261109/`: sealed grid records (**blind: not opened until the prediction is committed**).
+- `results/extension/grid_v5_20261109/`: sealed grid records (opened on 2026-11-16 after prediction commit `460c50a`; seal matched).
+- `analysis/grid_v5_final/`, `analysis/grid_v5_final_minus_specialist/`: outputs of `analysis.py` and `phase_b.py` on the 75 final swaps, and on the 67 without the specialist-knowledge rows.
