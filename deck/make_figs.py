@@ -1,5 +1,5 @@
 """Deck figures (PDF) from the analysis outputs. Nothing is typed in by hand: every plotted value is read from
-analysis/grid_v5_final/{metrics.csv,bootstrap.csv,phase_b.json}.
+analysis/grid_v5_final/{metrics.csv,bootstrap.csv,phase_b.json,followup.json}.
 
     .venv/bin/python deck/make_figs.py
 """
@@ -69,8 +69,32 @@ def funnel():
     plt.close(fig)
 
 
+def route():
+    """EXPLORATORY: corrections that reach the top 5, pooled over the 8 k >= 1 cells, by how they got there."""
+    e = json.loads((A / "followup.json").read_text())["route_corrections_pooled"]
+    parts = [(e["new_fact_was_candidate"], ACCENT, "fact was a candidate\n(the stage the fix acts on)"),
+             (e["also_in_dense_top5"], "#6f6e69", "own passage seed is enough\n(also in the dense top 5)"),
+             (e["not_in_dense_top5"], "#b3b2ab", "lifted by the graph\nfrom other seeds")]
+    total = e["corrections_in_top5"]
+    fig, ax = plt.subplots(figsize=(10, 2.9))
+    x = 0
+    for v, color, label in parts:
+        ax.barh(0, v - 1.2, left=x + 0.6, height=0.5, color=color)       # 1.2-unit surface gap between segments
+        ax.text(x + v / 2, 0, str(v), ha="center", va="center", fontsize=22, fontweight="bold", color="white" if color != "#b3b2ab" else INK)
+        ax.text(x + v / 2, -0.42, label, ha="center", va="top", fontsize=12, color=INK)
+        x += v
+    ax.text(0, 0.42, f"{total} corrections in the top 5 (8 cells x 75 questions)", ha="left", va="bottom", fontsize=12, color=INK2)
+    ax.set_xlim(0, total)
+    ax.set_ylim(-1.0, 0.75)
+    ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(OUT / "route.pdf")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     correction()
     funnel()
+    route()
     print("wrote", sorted(p.name for p in OUT.glob("*.pdf")))
