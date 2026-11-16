@@ -99,3 +99,35 @@ Absent minus present: +7.6 [-2.6, +18.2] points.
 | 3hop1__9285_5188_63702 | 1 | June 1941 → September 1940 | no | 17 | 14 | +1.17e-06 | +0.6% | +0.0046 | 1 | 7 |
 | 3hop1__9285_5188_63702 | 2 | June 1941 → September 1940 | no | 17 | 15 | -4.54e-07 | -0.2% | -0.0015 | 0 | 6 |
 | 3hop1__9285_5188_63702 | 3 | June 1941 → September 1940 | no | 17 | 16 | -5.23e-07 | -0.3% | -0.0015 | 0 | 7 |
+
+## 4. EXPLORATORY: where the correction sits, and what else is in the top 5
+
+Rank of the best-ranked correction, pooled over k = 1, 2, 3, 5 (300 records per row).
+
+| system | n | 1 | 2 | 3 | 4 | 5 | 6-10 | >10 | in top 5 | of those at rank 1–2 | at rank 4–5 | median rank in top 5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| HippoRAG 2 | 1 | 9 | 60 | 41 | 19 | 13 | 38 | 120 | 142 | 69/142 (49%) | 32/142 (23%) | 3 |
+| HippoRAG 2 | 3 | 15 | 15 | 16 | 38 | 23 | 51 | 142 | 107 | 30/107 (28%) | 61/107 (57%) | 4 |
+| dense | 1 | 49 | 24 | 21 | 12 | 12 | 34 | 148 | 118 | 73/118 (62%) | 24/118 (20%) | 2 |
+| dense | 3 | 20 | 37 | 18 | 24 | 17 | 27 | 157 | 116 | 57/116 (49%) | 41/116 (35%) | 3 |
+
+Corrections in the top 5 at n = 1: how many are lost at n = 3, by their n = 1 rank.
+
+| system | rank 1 | rank 2 | rank 3 | rank 4 | rank 5 | rank shift n = 1 → 3: unchanged / down 1–2 / down ≥ 3 / up (median) |
+|---|---|---|---|---|---|---|
+| HippoRAG 2 | 0 of 9 | 9 of 60 | 12 of 41 | 8 of 19 | 6 of 13 | 39 / 59 / 30 / 14 (+2) |
+| dense | 0 of 49 | 0 of 24 | 0 of 21 | 0 of 12 | 2 of 12 | 64 / 54 / 0 / 0 (+0) |
+
+Top-5 slots at n = 1 (pooled over k).
+
+| system | other-hop gold slots, all 300 records (mean per record) | records with ≥ 1 | when the correction is in the top 5: other-hop slots (mean) | records with ≥ 1 | correction slots (mean) | old-passage slots (mean) | an other-hop passage ranked above the correction |
+|---|---|---|---|---|---|---|---|
+| HippoRAG 2 | 243 (0.81) | 231/300 (77%) | 86 (0.61) | 86/142 (61%) | 2.06 | 0.73 | 75 of 142 |
+| dense | 233 (0.78) | 217/300 (72%) | 59 (0.50) | 59/118 (50%) | 2.23 | 0.69 | 38 of 118 |
+
+HippoRAG 2 corrections in the top 5 at n = 1, split by what happens at n = 3.
+
+| | records | n = 1 rank 1 / 2 / 3 / 4 / 5 | at rank 4–5 | with an other-hop passage in the top 5 at n = 1 (mean slots) | dense has the correction at n = 1 | at n = 3 |
+|---|---|---|---|---|---|---|
+| lost at n = 3 | 35 | 0 / 9 / 12 / 8 / 6 | 14 | 26 (0.74) | 9 | 9 |
+| kept at n = 3 | 107 | 9 / 51 / 29 / 11 / 7 | 18 | 60 (0.56) | 85 | 84 |

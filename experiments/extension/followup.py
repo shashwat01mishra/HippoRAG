@@ -13,6 +13,7 @@ and were chosen after the results were seen.
   3 asymmetry     HippoRAG 2 n=1 -> 3 change split by o' absent from the corpus vs present; for questions lost at
                   n = 3, old-minus-new PPR margin against degree(o) - degree(o') read from the cell's graph.pickle
                   (outputs/extension/grid_v5_20261109/cell_n3_k*_g*; read-only).
+  4 rank          rank of the best correction per system at n = 1 and n = 3; other-hop gold passages in the top 5
 CIs: 10,000 resamples of targets, seed 0, percentile 95 %.
 
     .venv/bin/python experiments/extension/followup.py --out analysis/grid_v5_final
@@ -185,6 +186,70 @@ def compute(targets, records):
                                                                  if r["deg_o"] != r["deg_o_prime"]), sum(r["deg_o"] != r["deg_o_prime"] for r in ok)),
         "o_prime_absent": sum(r["o_prime_absent"] for r in lost_rows), "rows": lost_rows}
     out["asymmetry"] = asym
+
+    # ---- 4 rank of the correction and other-hop passages (exploratory) -------------------------------
+    BINS = ("1", "2", "3", "4", "5", "6-10", ">10")
+    binof = lambda r: str(r) if r <= 5 else ("6-10" if r <= 10 else ">10")
+    best = lambda rec, arm: min(p["rank"] for p in rec[arm]["passages"].values() if p["role"] == "new")
+    other = lambda rec, arm: sum(x["role"] == "gold_other" for x in rec[arm]["top5"])
+    rk = {}
+    for arm in ("hipporag", "dense"):
+        e = {}
+        for n in NS:
+            ranks = [best(nofix[((n, k), t)], arm) for k in KS for t in ids]
+            c = collections.Counter(binof(r) for r in ranks)
+            in5 = [r for r in ranks if r <= 5]
+            e[f"n{n}"] = {"records": len(ranks), "bins": {b: c.get(b, 0) for b in BINS}, "in_top5": len(in5),
+                          "of_in_top5_rank_1_2": rate(sum(r <= 2 for r in in5), len(in5)),
+                          "of_in_top5_rank_4_5": rate(sum(r >= 4 for r in in5), len(in5)),
+                          "median_rank_in_top5": float(np.median(in5)) if in5 else None}
+        # what happens at n = 3 to corrections that were in the top 5 at n = 1, by their n = 1 rank
+        trans = {}
+        shifts = []
+        for b in ("1", "2", "3", "4", "5"):
+            pairs = [(best(nofix[((1, k), t)], arm), best(nofix[((3, k), t)], arm)) for k in KS for t in ids]
+            sel = [(a, c3) for a, c3 in pairs if str(a) == b]
+            trans[b] = {"at_n1": len(sel), "lost_at_n3": sum(c3 > 5 for _, c3 in sel)}
+            shifts += [c3 - a for a, c3 in sel]
+        e["by_n1_rank"] = trans
+        e["rank_shift_n1_to_n3_for_in_top5_at_n1"] = {"median": float(np.median(shifts)), "mean": float(np.mean(shifts)),
+                                                      "unchanged": sum(x == 0 for x in shifts), "down_1_or_2": sum(1 <= x <= 2 for x in shifts),
+                                                      "down_3_plus": sum(x >= 3 for x in shifts), "up": sum(x < 0 for x in shifts), "records": len(shifts)}
+        # other-hop gold passages in the top 5 at n = 1
+        oth_all = [other(nofix[((1, k), t)], arm) for k in KS for t in ids]
+        oth_in = [other(nofix[((1, k), t)], arm) for k in KS for t in ids if best(nofix[((1, k), t)], arm) <= 5]
+        old_in = [nofix[((1, k), t)][arm]["contamination_at5"] for k in KS for t in ids if best(nofix[((1, k), t)], arm) <= 5]
+        new_in = [sum(x["role"] == "new" for x in nofix[((1, k), t)][arm]["top5"]) for k in KS for t in ids if best(nofix[((1, k), t)], arm) <= 5]
+        e["other_hop_gold_in_top5_n1"] = {"mean_all_records": float(np.mean(oth_all)), "total_slots_all_records": int(sum(oth_all)),
+                                          "records_with_at_least_one": rate(sum(x > 0 for x in oth_all), len(oth_all)),
+                                          "mean_when_correction_in_top5": float(np.mean(oth_in)), "total_slots_when_correction_in_top5": int(sum(oth_in)),
+                                          "records_with_at_least_one_when_correction_in_top5": rate(sum(x > 0 for x in oth_in), len(oth_in)),
+                                          "mean_old_slots_when_correction_in_top5": float(np.mean(old_in)),
+                                          "mean_correction_slots_when_correction_in_top5": float(np.mean(new_in))}
+        # at n = 1, correction in the top 5: is an other-hop gold passage ranked ABOVE the correction?
+        above = []
+        for k in KS:
+            for t in ids:
+                rec = nofix[((1, k), t)]
+                b = best(rec, arm)
+                if b <= 5:
+                    above.append(sum(x["role"] == "gold_other" for x in rec[arm]["top5"][:b - 1]))
+        e["other_hop_ranked_above_correction_n1"] = {"records": len(above), "with_at_least_one": sum(x > 0 for x in above), "mean": float(np.mean(above))}
+        rk[arm] = e
+    # the lost-at-n3 HippoRAG records: where was the correction at n = 1, and how many other-hop passages were in the top 5
+    lost = [(nofix[((1, k), t)], nofix[((3, k), t)]) for k in KS for t in ids
+            if nofix[((1, k), t)]["hipporag"]["correction_at5"] and not nofix[((3, k), t)]["hipporag"]["correction_at5"]]
+    kept = [(nofix[((1, k), t)], nofix[((3, k), t)]) for k in KS for t in ids
+            if nofix[((1, k), t)]["hipporag"]["correction_at5"] and nofix[((3, k), t)]["hipporag"]["correction_at5"]]
+    desc = lambda prs: {"records": len(prs), "n1_rank_bins": {b: sum(binof(best(a, "hipporag")) == b for a, _ in prs) for b in ("1", "2", "3", "4", "5")},
+                        "n1_rank_4_5": sum(best(a, "hipporag") >= 4 for a, _ in prs),
+                        "mean_other_hop_in_top5_n1": float(np.mean([other(a, "hipporag") for a, _ in prs])),
+                        "with_other_hop_in_top5_n1": sum(other(a, "hipporag") > 0 for a, _ in prs),
+                        "dense_has_correction_in_top5_n1": sum(bool(a["dense"]["correction_at5"]) for a, _ in prs),
+                        "dense_has_correction_in_top5_n3": sum(bool(b3["dense"]["correction_at5"]) for _, b3 in prs)}
+    rk["hipporag_lost_at_n3"] = desc(lost)
+    rk["hipporag_kept_at_n3"] = desc(kept)
+    out["rank"] = rk
     return out
 
 
@@ -264,6 +329,38 @@ def markdown(o):
     for r in sorted(lo["rows"], key=lambda r: (r["target_id"], r["k"])):
         L.append(f"| {r['target_id']} | {r['k']} | {r['o']} → {r['o_prime']} | {'yes' if r['o_prime_absent'] else 'no'} | {r['deg_o']} | {r['deg_o_prime']} | "
                  f"{r['margin_old_minus_new']:+.2e} | {r['relative_margin']:+.1%} | {r['cosine_margin_old_minus_new']:+.4f} | {r['old_in_top5']} | {r['best_new_rank']} |")
+    rk = o["rank"]
+    BINS = ("1", "2", "3", "4", "5", "6-10", ">10")
+    L += ["", "## 4. EXPLORATORY: where the correction sits, and what else is in the top 5", "",
+          "Rank of the best-ranked correction, pooled over k = 1, 2, 3, 5 (300 records per row).", "",
+          "| system | n | " + " | ".join(BINS) + " | in top 5 | of those at rank 1–2 | at rank 4–5 | median rank in top 5 |", "|---|---|" + "---|" * (len(BINS) + 4)]
+    for arm, name in (("hipporag", "HippoRAG 2"), ("dense", "dense")):
+        for n in (1, 3):
+            e = rk[arm][f"n{n}"]
+            L.append(f"| {name} | {n} | " + " | ".join(str(e["bins"][b]) for b in BINS) + f" | {e['in_top5']} | {pct(e['of_in_top5_rank_1_2'])} | "
+                     f"{pct(e['of_in_top5_rank_4_5'])} | {e['median_rank_in_top5']:.0f} |")
+    L += ["", "Corrections in the top 5 at n = 1: how many are lost at n = 3, by their n = 1 rank.", "",
+          "| system | rank 1 | rank 2 | rank 3 | rank 4 | rank 5 | rank shift n = 1 → 3: unchanged / down 1–2 / down ≥ 3 / up (median) |", "|---|---|---|---|---|---|---|"]
+    for arm, name in (("hipporag", "HippoRAG 2"), ("dense", "dense")):
+        t, sh = rk[arm]["by_n1_rank"], rk[arm]["rank_shift_n1_to_n3_for_in_top5_at_n1"]
+        L.append(f"| {name} | " + " | ".join(f"{t[b]['lost_at_n3']} of {t[b]['at_n1']}" for b in ("1", "2", "3", "4", "5")) +
+                 f" | {sh['unchanged']} / {sh['down_1_or_2']} / {sh['down_3_plus']} / {sh['up']} ({sh['median']:+.0f}) |")
+    L += ["", "Top-5 slots at n = 1 (pooled over k).", "",
+          "| system | other-hop gold slots, all 300 records (mean per record) | records with ≥ 1 | when the correction is in the top 5: other-hop slots (mean) | records with ≥ 1 | correction slots (mean) | old-passage slots (mean) | an other-hop passage ranked above the correction |",
+          "|---|---|---|---|---|---|---|---|"]
+    for arm, name in (("hipporag", "HippoRAG 2"), ("dense", "dense")):
+        e, ab = rk[arm]["other_hop_gold_in_top5_n1"], rk[arm]["other_hop_ranked_above_correction_n1"]
+        L.append(f"| {name} | {e['total_slots_all_records']} ({e['mean_all_records']:.2f}) | {pct(e['records_with_at_least_one'])} | "
+                 f"{e['total_slots_when_correction_in_top5']} ({e['mean_when_correction_in_top5']:.2f}) | {pct(e['records_with_at_least_one_when_correction_in_top5'])} | "
+                 f"{e['mean_correction_slots_when_correction_in_top5']:.2f} | {e['mean_old_slots_when_correction_in_top5']:.2f} | {ab['with_at_least_one']} of {ab['records']} |")
+    L += ["", "HippoRAG 2 corrections in the top 5 at n = 1, split by what happens at n = 3.", "",
+          "| | records | n = 1 rank 1 / 2 / 3 / 4 / 5 | at rank 4–5 | with an other-hop passage in the top 5 at n = 1 (mean slots) | dense has the correction at n = 1 | at n = 3 |",
+          "|---|---|---|---|---|---|---|"]
+    for lab, name in (("hipporag_lost_at_n3", "lost at n = 3"), ("hipporag_kept_at_n3", "kept at n = 3")):
+        e = rk[lab]
+        L.append(f"| {name} | {e['records']} | " + " / ".join(str(e["n1_rank_bins"][b]) for b in ("1", "2", "3", "4", "5")) +
+                 f" | {e['n1_rank_4_5']} | {e['with_other_hop_in_top5_n1']} ({e['mean_other_hop_in_top5_n1']:.2f}) | "
+                 f"{e['dense_has_correction_in_top5_n1']} | {e['dense_has_correction_in_top5_n3']} |")
     return "\n".join(L) + "\n"
 
 

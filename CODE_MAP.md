@@ -173,8 +173,8 @@ Upstream functions are written `HippoRAG.method` and live in `src/hipporag/Hippo
 - **Calls upstream.** None (it reads records; uses `analysis.load_records`, `restrict_to_final`, `attrib_rag.outranks_old`).
 - **Deck.** Slide 7 (stale-copy change −11.7 vs −0.7), slide 8 (funnel 75 → 9 → 8 → 7, fix +0.2), slide 9 (prediction table), backup long-context table; `RESULTS_BRIEF.md` throughout.
 
-### `followup.py` (284 lines)
-- **Purpose.** Follow-up analyses on the existing records (offline). `compute` builds: the interaction CI for the n = 1 → 3 penalty (tests prediction item 4); the k = 0 baseline for the old fact and the route by which passages reach the top 5 without their fact (`route`, `route_summary`; exploratory); the penalty split by o′ absent/present and the lost-at-n = 3 table with node degrees (exploratory). `boot_diff_groups` (two independent groups), `spearman`, `markdown`, `main`.
+### `followup.py` (381 lines)
+- **Purpose.** Follow-up analyses on the existing records (offline). `compute` builds: the interaction CI for the n = 1 → 3 penalty (tests prediction item 4); the k = 0 baseline for the old fact and the route by which passages reach the top 5 without their fact (`route`, `route_summary`; exploratory); the penalty split by o′ absent/present and the lost-at-n = 3 table with node degrees (exploratory). Section 4 (exploratory): the correction's rank per system at n = 1 and n = 3, other-hop gold passages in the top 5, and rank shifts (backup slide "where the correction sits"). `boot_diff_groups` (two independent groups), `spearman`, `markdown`, `main`.
 - **In.** The sealed grid records, `data/targets_final.jsonl`, and the n = 3 cell graphs `outputs/extension/grid_v5_20261109/cell_n3_k*_g*/…/graph.pickle` (read-only, for degrees).
 - **Out.** `analysis/grid_v5_final/followup.json`, `followup.md`.
 - **Calls upstream.** `compute_mdhash_id`, `text_processing` (entity node keys); igraph `degree` / `strength` on the stored graph.

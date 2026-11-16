@@ -1017,5 +1017,245 @@
     }
    ]
   }
+ },
+ "rank": {
+  "hipporag": {
+   "n1": {
+    "records": 300,
+    "bins": {
+     "1": 9,
+     "2": 60,
+     "3": 41,
+     "4": 19,
+     "5": 13,
+     "6-10": 38,
+     ">10": 120
+    },
+    "in_top5": 142,
+    "of_in_top5_rank_1_2": {
+     "num": 69,
+     "den": 142,
+     "rate": 0.4859154929577465
+    },
+    "of_in_top5_rank_4_5": {
+     "num": 32,
+     "den": 142,
+     "rate": 0.22535211267605634
+    },
+    "median_rank_in_top5": 3.0
+   },
+   "n3": {
+    "records": 300,
+    "bins": {
+     "1": 15,
+     "2": 15,
+     "3": 16,
+     "4": 38,
+     "5": 23,
+     "6-10": 51,
+     ">10": 142
+    },
+    "in_top5": 107,
+    "of_in_top5_rank_1_2": {
+     "num": 30,
+     "den": 107,
+     "rate": 0.2803738317757009
+    },
+    "of_in_top5_rank_4_5": {
+     "num": 61,
+     "den": 107,
+     "rate": 0.5700934579439252
+    },
+    "median_rank_in_top5": 4.0
+   },
+   "by_n1_rank": {
+    "1": {
+     "at_n1": 9,
+     "lost_at_n3": 0
+    },
+    "2": {
+     "at_n1": 60,
+     "lost_at_n3": 9
+    },
+    "3": {
+     "at_n1": 41,
+     "lost_at_n3": 12
+    },
+    "4": {
+     "at_n1": 19,
+     "lost_at_n3": 8
+    },
+    "5": {
+     "at_n1": 13,
+     "lost_at_n3": 6
+    }
+   },
+   "rank_shift_n1_to_n3_for_in_top5_at_n1": {
+    "median": 2.0,
+    "mean": 3.3098591549295775,
+    "unchanged": 39,
+    "down_1_or_2": 59,
+    "down_3_plus": 30,
+    "up": 14,
+    "records": 142
+   },
+   "other_hop_gold_in_top5_n1": {
+    "mean_all_records": 0.81,
+    "total_slots_all_records": 243,
+    "records_with_at_least_one": {
+     "num": 231,
+     "den": 300,
+     "rate": 0.77
+    },
+    "mean_when_correction_in_top5": 0.6056338028169014,
+    "total_slots_when_correction_in_top5": 86,
+    "records_with_at_least_one_when_correction_in_top5": {
+     "num": 86,
+     "den": 142,
+     "rate": 0.6056338028169014
+    },
+    "mean_old_slots_when_correction_in_top5": 0.7323943661971831,
+    "mean_correction_slots_when_correction_in_top5": 2.063380281690141
+   },
+   "other_hop_ranked_above_correction_n1": {
+    "records": 142,
+    "with_at_least_one": 75,
+    "mean": 0.528169014084507
+   }
+  },
+  "dense": {
+   "n1": {
+    "records": 300,
+    "bins": {
+     "1": 49,
+     "2": 24,
+     "3": 21,
+     "4": 12,
+     "5": 12,
+     "6-10": 34,
+     ">10": 148
+    },
+    "in_top5": 118,
+    "of_in_top5_rank_1_2": {
+     "num": 73,
+     "den": 118,
+     "rate": 0.6186440677966102
+    },
+    "of_in_top5_rank_4_5": {
+     "num": 24,
+     "den": 118,
+     "rate": 0.2033898305084746
+    },
+    "median_rank_in_top5": 2.0
+   },
+   "n3": {
+    "records": 300,
+    "bins": {
+     "1": 20,
+     "2": 37,
+     "3": 18,
+     "4": 24,
+     "5": 17,
+     "6-10": 27,
+     ">10": 157
+    },
+    "in_top5": 116,
+    "of_in_top5_rank_1_2": {
+     "num": 57,
+     "den": 116,
+     "rate": 0.49137931034482757
+    },
+    "of_in_top5_rank_4_5": {
+     "num": 41,
+     "den": 116,
+     "rate": 0.35344827586206895
+    },
+    "median_rank_in_top5": 3.0
+   },
+   "by_n1_rank": {
+    "1": {
+     "at_n1": 49,
+     "lost_at_n3": 0
+    },
+    "2": {
+     "at_n1": 24,
+     "lost_at_n3": 0
+    },
+    "3": {
+     "at_n1": 21,
+     "lost_at_n3": 0
+    },
+    "4": {
+     "at_n1": 12,
+     "lost_at_n3": 0
+    },
+    "5": {
+     "at_n1": 12,
+     "lost_at_n3": 2
+    }
+   },
+   "rank_shift_n1_to_n3_for_in_top5_at_n1": {
+    "median": 0.0,
+    "mean": 0.6271186440677966,
+    "unchanged": 64,
+    "down_1_or_2": 54,
+    "down_3_plus": 0,
+    "up": 0,
+    "records": 118
+   },
+   "other_hop_gold_in_top5_n1": {
+    "mean_all_records": 0.7766666666666666,
+    "total_slots_all_records": 233,
+    "records_with_at_least_one": {
+     "num": 217,
+     "den": 300,
+     "rate": 0.7233333333333334
+    },
+    "mean_when_correction_in_top5": 0.5,
+    "total_slots_when_correction_in_top5": 59,
+    "records_with_at_least_one_when_correction_in_top5": {
+     "num": 59,
+     "den": 118,
+     "rate": 0.5
+    },
+    "mean_old_slots_when_correction_in_top5": 0.6864406779661016,
+    "mean_correction_slots_when_correction_in_top5": 2.2288135593220337
+   },
+   "other_hop_ranked_above_correction_n1": {
+    "records": 118,
+    "with_at_least_one": 38,
+    "mean": 0.3220338983050847
+   }
+  },
+  "hipporag_lost_at_n3": {
+   "records": 35,
+   "n1_rank_bins": {
+    "1": 0,
+    "2": 9,
+    "3": 12,
+    "4": 8,
+    "5": 6
+   },
+   "n1_rank_4_5": 14,
+   "mean_other_hop_in_top5_n1": 0.7428571428571429,
+   "with_other_hop_in_top5_n1": 26,
+   "dense_has_correction_in_top5_n1": 9,
+   "dense_has_correction_in_top5_n3": 9
+  },
+  "hipporag_kept_at_n3": {
+   "records": 107,
+   "n1_rank_bins": {
+    "1": 9,
+    "2": 51,
+    "3": 29,
+    "4": 11,
+    "5": 7
+   },
+   "n1_rank_4_5": 18,
+   "mean_other_hop_in_top5_n1": 0.5607476635514018,
+   "with_other_hop_in_top5_n1": 60,
+   "dense_has_correction_in_top5_n1": 85,
+   "dense_has_correction_in_top5_n3": 84
+  }
  }
 }

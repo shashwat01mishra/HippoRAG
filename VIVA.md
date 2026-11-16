@@ -32,8 +32,8 @@ Answer each one aloud before opening `VIVA_ANSWERS.md`. The "predict before you 
 ## D. The extension
 
 19. State the result of the extension in two sentences, with numbers.
-20. You predicted the filter was the bottleneck. It was not. What was, and why did you get it wrong?
-21. The attribution says every failure is "not a candidate". Why is that partly an artefact of your first-failure rule, and what evidence do you have of a second effect?
+20. You predicted the filter was the bottleneck. It was not. What did the results show instead, and why did you get it wrong?
+21. The first-failure attribution labels every failure "not a candidate". Why is that label not a failure mode at all, and what is the effect that actually separates HippoRAG 2 from dense?
 22. Your fix changes correction@5 by +0.2 points. Is the fix useless?
 23. Detection in your fix is an oracle. What does that mean, and what would break outside this protocol?
 24. Nothing in an injected passage says it is newer. So in what sense is it a "correction", and how does that affect the long-context result?

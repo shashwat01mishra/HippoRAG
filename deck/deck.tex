@@ -233,7 +233,7 @@ Fix leaves unchanged facts alone & 0 facts dropped wrongly & \hit\\
 \item The filter and fix results rest on 9 and 7 questions
 \item Passages carry no date: nothing marks a correction as newer
 \item Copies are exact duplicates; N = 75; one dataset, one LLM
-\item Why copies hurt the graph is open: the old-vs-new order follows dense similarity, not node degree \quiet{(exploratory)}
+\item Why copies reshuffle the graph's ranking is open: the old-vs-new order follows dense similarity, not node degree \quiet{(exploratory)}
 \end{itemize}
 \vspace{0.6em}
 \textbf{Next:} widen the candidate step from 5 to 20 and rerun.
@@ -306,6 +306,28 @@ Demo traces (est.) & Rs 0.03\\
 
 \vspace{0.8em}
 \quiet{OpenIE: Rs 0, the authors' released extractions are reused. One live demo run: Rs 0.00 to 0.03.}
+\end{frame}
+
+\begin{frame}{Backup: where the correction sits}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+correction retrieved with 1 old copy (pooled over $k$) & HippoRAG 2 & dense\\
+\midrule
+records & 142 & 118\\
+at rank 1 & 9 & 49\\
+moves down 3+ ranks when 2 copies are added & 30 & 0\\
+lost from the top 5 & 35 & 2\\
+\quad of those, started at rank 2 or 3 & 21 & 0\\
+other-hop gold passages in the top 5, per record & 0.81 & 0.78\\
+\quad one ranked above the correction & 75 & 38\\
+\bottomrule
+\end{tabular}
+
+\vspace{0.7em}
+\normalsize
+Dense: the correction starts higher, and copies can only slot in above it.\\
+HippoRAG 2: the copies also reshuffle the rest. \quiet{Exploratory.}
 \end{frame}
 
 \begin{frame}{Backup: the reader, given everything}

@@ -74,7 +74,7 @@ R = `results/musique_n500/bootstrap_n500.txt` · S = `analysis/grid_v5_final/sum
 
 ## 11. Limits and next (45 s)
 - 9 and 7 questions carry the filter and fix results (P). No dates on passages. Exact-duplicate copies. N = 75, one dataset, one LLM.
-- Open question: why copies hurt the graph. In the 35 records lost at n = 3 (18 questions), an old passage is in the top 5 in 19 and the correction then sits at rank 6–10 in all 19. The old-vs-new order follows dense similarity (ρ = +0.91, same sign in 34 of 35), not node degree (ρ = +0.14, p = 0.43). o′ absent vs present: −8.1 vs −15.7 points, difference +7.6 [−2.6, +18.2] (U §3). All exploratory.
+- Part-answered question: why copies hurt the graph (backup slide "Where the correction sits"). In the 35 records lost at n = 3 (18 questions), an old passage is in the top 5 in 19 and the correction then sits at rank 6–10 in all 19. The old-vs-new order follows dense similarity (ρ = +0.91, same sign in 34 of 35), not node degree (ρ = +0.14, p = 0.43). o′ absent vs present: −8.1 vs −15.7 points, difference +7.6 [−2.6, +18.2] (U §3). All exploratory.
 - Next: `linking_top_k` 5 → 20.
 
 ---
@@ -85,4 +85,5 @@ R = `results/musique_n500/bootstrap_n500.txt` · S = `analysis/grid_v5_final/sum
 - **PPR maths.** d = 0.5 (`src/hipporag/utils/config_utils.py:192`); mean walk d/(1−d) is 1 step at 0.5 and 0.85/0.15 ≈ 5.7 at 0.85 (arithmetic). Reset split 2.0 % / 98.0 % (Q).
 - **Metric definitions.** `experiments/extension/analysis.py:44–68`.
 - **Cost.** ₹17.41 and ₹36.44 are actual key usage; ₹3.60, ₹33.29 and ₹0.03 are estimates at list × 1.1 (L, Sessions 4, 6, 8).
+- **Where the correction sits (exploratory, U §4).** Rank at n = 1 → n = 3 pooled over k. Dense: at rank 1 in 49 of 118 retrieved; never moves more than 2 ranks (0 of 118); loses 2 of 118. HippoRAG 2: at rank 1 in 9 of 142; 30 of 142 move 3 or more ranks; loses 35 of 142, including 9 of 60 from rank 2 and 12 of 41 from rank 3. Other-hop gold passages in the top 5 are about equal (0.81 vs 0.78 slots per record) but rank above the correction more often in HippoRAG 2 (75 of 142 vs 38 of 118). Use this if asked "why does crowding not hurt dense".
 - **Long-context reader.** Answers o′ / o / neither: (1,1) 7 / 41 / 27; (1,5) 26 / 19 / 30; (3,1) 1 / 43 / 31; (3,5) 16 / 32 / 26, one "both" (P).

@@ -95,7 +95,22 @@ For the 178 non-candidate records, the passage's own seed arriving directly (no 
 - Whether o′ already exists in the corpus does not explain the penalty: −8.1 pts [−14.4, −3.1] when o′ is absent (N = 40) and −15.7 pts [−25.0, −7.1] when present (N = 35); the difference, +7.6 pts [−2.6, +18.2], includes 0. Dense changes by −0.6 and −0.7.
 - Caveat: the 35 records are not independent (18 questions), so the p-values are optimistic.
 
-Of the three mechanisms in the theory, the records point to **top-5 crowding by old copies**, with the order among copies set by passage similarity. They do not support graph asymmetry through the object nodes. Why the same crowding does not cost dense anything is not answered by these records.
+Of the three mechanisms in the theory, the records point to **top-5 crowding by old copies**, with the order among copies set by passage similarity. They do not support graph asymmetry through the object nodes.
+
+**Why crowding costs dense nothing** (U, §4; exploratory). The hypothesis was: HippoRAG 2's correction sits nearer the cutoff because its top 5 also holds other-hop passages, so two extra copies push it out, while dense's correction sits at ranks 1–2. It holds in part.
+
+| Correction's rank, pooled over k (300 records per row) | 1 | 2 | 3 | 4 | 5 | 6–10 | > 10 |
+|---|---|---|---|---|---|---|---|
+| HippoRAG 2, n = 1 | 9 | 60 | 41 | 19 | 13 | 38 | 120 |
+| HippoRAG 2, n = 3 | 15 | 15 | 16 | 38 | 23 | 51 | 142 |
+| dense, n = 1 | 49 | 24 | 21 | 12 | 12 | 34 | 148 |
+| dense, n = 3 | 20 | 37 | 18 | 24 | 17 | 27 | 157 |
+
+- **Holds: dense's correction sits higher.** When retrieved at n = 1, it is at rank 1 in 49 of 118 (dense) vs 9 of 142 (HippoRAG 2), and at rank 1–2 in 62 % vs 49 %. The share at ranks 4–5 is about the same (20 % vs 23 %).
+- **Does not hold: the number of other-hop passages.** Other-hop gold passages take 0.81 top-5 slots per record in HippoRAG 2 and 0.78 in dense at n = 1 (243 vs 233 slots over 300 records). What differs is their position: one is ranked above the correction in 75 of 142 records for HippoRAG 2 and in 38 of 118 for dense.
+- **Two extra copies are not the whole story.** In dense a retrieved correction never moves more than 2 ranks when the copies are added (64 unchanged, 54 down by 1–2, 0 down by 3 or more), and only 2 of 118 are lost, both from rank 5. In HippoRAG 2, 30 of 142 move down 3 or more ranks, and corrections are lost from rank 2 (9 of 60) and rank 3 (12 of 41) as well as from ranks 4–5 (14 of 32). Only 14 of the 35 losses started at ranks 4–5, where two copies would be enough.
+- So dense is protected twice: its correction starts higher, and adding copies can only insert those copies above it. In HippoRAG 2 the copies also change the rest of the ranking. These records do not show how; the extra copies add reset mass and edges around the old object, which is the obvious candidate.
+- Of the 35 lost records, dense has the correction in its top 5 in 9, at n = 1 and at n = 3. HippoRAG 2 mostly loses corrections that dense never had.
 
 ## 4. What the seed-stage fix changes
 
