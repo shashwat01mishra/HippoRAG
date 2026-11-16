@@ -346,4 +346,14 @@ Brief: `notes/prediction.md` is not committed yet, so this session stays blind: 
 ### Phase A stop
 - `notes/prediction.md` does not exist, so it is not in a commit. Phase A committed and pushed; **waiting for prediction**. Phase B (seal check, analysis, RESULTS_BRIEF, deck, VIVA, ONE_PAGER_FACTS) not started; still blind.
 - Phase A spend ≈ ₹0.03 (estimate, list × 1.1; key usage not checked).
+
+## 2026-11-16: Session 8 (cont.): prediction commit, second-pass screening, Phase B
+
+### Step 0: prediction — done
+- `notes/prediction.md` committed on its own as **`460c50a`** (`460c50a3e87ce67ce710d561ab8bdcd792f6e5c5`, 2026-11-16 18:59:47 IST, "prediction, written blind"), pushed to `origin/dev`. No extension result, extension log or grid cost line had been opened before this commit. Model changed to Claude Fable 5.2 from this point.
+
+### Steps 1–2: second-pass screening + integrity check (offline, ₹0; still before any result was opened) — done
+- Second pass (Claude on claude.ai, per the user): row 100 → y, row 112 → n. Rule added to `review_reasons.md`: drop if a criterion fails or the swap is obviously false to a general reader; keep if spotting it needs specialist knowledge. `finalize_targets.py`: **75 kept** (groups 73 + 2); o′ frequency absent 40 / 1–9 26 / ≥10 9 (split not used); model_knows_o no 44 / yes 31 (split used).
+- Integrity check over all 120 rows of `targets_v5.jsonl` (swapped body = body with o → o′ and nothing else; triples differ only by o → o′; anchor = (s, r, o)): **0 defects**. Row 88's data is intact; the unrelated text is a display fallback in `review_v5.md` (the sentence splitter breaks at "James J."). No row marked "broken: generator defect".
+- Specialist-knowledge keeps for the sensitivity report: rows 19, 25, 29, 45, 91, 100, 109, 114.
  Inherited from the upstream OpenIE cache (2,457 of 11,656 docs have NER disjoint from their own triples). No effect on the graph: nodes come from triples only (`src/hipporag/HippoRAG.py:564`); NER is used for stats.

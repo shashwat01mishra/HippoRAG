@@ -1,12 +1,14 @@
 # Swap screening: reasons for every keep mark in `review_v5.md`
 
+**Rule (second pass, 2026-11-16):** drop if any of the five criteria fails or the swap is obviously false to a general reader; keep if spotting the error needs specialist knowledge.
+
 Criteria (any one gives `n`; if in doubt, `n`; no row kept to protect a frequency bin):
 **kind**: o′ is the wrong kind of thing for the slot · **contra**: the swap contradicts the rest of the passage ·
 **true**: o′ might actually be true · **chain**: o′ is another entity in the question's chain · **broken**: the sentence is broken.
 
 The "chain" criterion was checked programmatically (o′ against the question text, every hop answer, and the title and text of every other supporting paragraph): 0 hits, so no row is dropped for it.
 
-Reviewer: Claude (Opus 5.5), 2026-11-16, from the swapped passages in `targets_v5.jsonl` and the question chains in `reproduce/dataset/musique.json`. Results were not opened. "Borderline keep" marks a `y` row where world knowledge (not the passage) contradicts o′; these are worth a second look.
+Reviewer: Claude (Opus 5.5), 2026-11-16, from the swapped passages in `targets_v5.jsonl` and the question chains in `reproduce/dataset/musique.json`. Results were not opened. Second pass: Claude on claude.ai (reported by the user, 2026-11-16, no results opened) agreed with all 10 spot-check rows and every mark except rows 100 (→ y) and 112 (→ n); both flips are applied below. An integrity check (below the table) followed. "Borderline keep" marks a `y` row where world knowledge (not the passage) contradicts o′; these are worth a second look.
 
 | # | target | keep | reason |
 |---|---|---|---|
@@ -109,7 +111,7 @@ Reviewer: Claude (Opus 5.5), 2026-11-16, from the swapped passages in `targets_v
 | 97 | 2hop__683835_709167 | n | broken: "won an BAFTA Award" |
 | 98 | 2hop__731584_700117 | y | county for county; false; consistent |
 | 99 | 2hop__742831_156034 | y | bay for bay; false; consistent |
-| 100 | 2hop__75207_365216 | n | contra: "Biobío Province of Chile's Maule Region" |
+| 100 | 2hop__75207_365216 | y | second pass: specialist-knowledge keep; Biobío Province is not in the Maule Region, but that is obscure geography (same class as rows 37 and 50). First pass had n (contra) |
 | 101 | 2hop__771477_149987 | n | contra: Greek etymology, Argive heroes, Theban war, "Thebaid" |
 | 102 | 2hop__81682_707195 | n | true: Port Jackson is Sydney Harbour |
 | 103 | 2hop__817096_15463 | y | company for company; false; consistent |
@@ -121,7 +123,7 @@ Reviewer: Claude (Opus 5.5), 2026-11-16, from the swapped passages in `targets_v
 | 109 | 3hop1__103890_10659_83548 | y | borderline keep: Mazowiecki was a Solidarity adviser, not its founding leader |
 | 110 | 3hop1__108062_720914_27537 | n | kind: a papal conclave to succeed Pius XII is held in Rome, so "Madrid" cannot fill the slot |
 | 111 | 3hop1__131820_59747_43101 | y | date for date; false; consistent |
-| 112 | 3hop1__17192_78396_54865 | y | borderline keep: 1754 vs the 1607–1783 span; not a direct contradiction |
+| 112 | 3hop1__17192_78396_54865 | n | second pass: 1754 for the 1776 declaration of independence is obviously false to a general reader. First pass had y (borderline keep) |
 | 113 | 3hop1__398232_326948_59893 | y | year for year; false; consistent |
 | 114 | 3hop1__423001_503371_21711 | y | borderline keep: construction began c. 1400; "14th century" is wrong but close |
 | 115 | 3hop1__71549_486583_84283 | y | owner for owner; false; consistent |
@@ -135,11 +137,23 @@ Reviewer: Claude (Opus 5.5), 2026-11-16, from the swapped passages in `targets_v
 
 Rows 6, 34, 50, 52, 54, 63, 66, 98, 109, 114. Check each against the swapped passage in `review_v5.md`; if you disagree with any, flip its mark in `review_v5.md` and here, then rerun `finalize_targets.py`.
 
-## Result of `finalize_targets.py` (2026-11-16)
+## Integrity check (2026-11-16, `targets_v5.jsonl` only, all 120 rows)
+
+Checked per row: o occurs in the original body; `swapped_body` equals `body` with every occurrence of o replaced by o′ and nothing else changed; `gold_chunk` = title + body; the triple lists have equal length and differ only by o → o′; the anchor triple is (s, r, o); at least half of the triple entities occur in the passage; o′ is absent from the original body.
+
+- **Defects found: 0 of 120** (so 0 kept rows). No row was marked n for "broken: generator defect".
+- Row 88: the data is intact (the swapped passage is the New York City passage with "Fiorello La Guardia" → "James J. Walker", one occurrence). What looks unrelated is the `swapped` column of `review_v5.md`: its sentence splitter (`select_targets.sentence_with`, :134) breaks at "James J." and falls back to the passage's first 200 characters. It is a display defect in the review file, and row 88 is the only row where the displayed sentence omits the swap. Row 88 stays n for its original reason (true: Walker was re-elected in 1929).
+
+## Specialist-knowledge keeps (8 rows)
+
+Rows 19, 25, 29, 45, 91, 100, 109, 114: kept under the second-pass rule; the headline is reported with and without them in `RESULTS_BRIEF.md`.
+
+## Result of `finalize_targets.py` (2026-11-16, after the second pass)
 
 Source: stdout of `.venv/bin/python experiments/extension/finalize_targets.py`; output file `experiments/extension/data/targets_final.jsonl`.
 
 - marked n: 45; final: 75 (groups: 0 → 73, 1 → 2)
-- o′ frequency: 0 (absent) 39 · 1–9 27 · ≥10 9 → split **not** used (≥10 bin < 15)
+- o′ frequency: 0 (absent) 40 · 1–9 26 · ≥10 9 → split **not** used (≥10 bin < 15)
 - model_knows_o: no 44 · yes 31 → split **used**
-- o′ freq × knows o: absent/no 22 · absent/yes 17 · 1–9/no 18 · 1–9/yes 9 · ≥10/no 4 · ≥10/yes 5
+- o′ freq × knows o: absent/no 22 · absent/yes 18 · 1–9/no 18 · 1–9/yes 8 · ≥10/no 4 · ≥10/yes 5
+- First pass (before the flips of rows 100 and 112): also 75; absent 39 · 1–9 27 · ≥10 9; knows no 44 · yes 31.
