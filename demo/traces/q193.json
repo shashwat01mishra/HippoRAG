@@ -1,0 +1,447 @@
+{
+ "index": 193,
+ "question": "Which season was the runner up of the third season of American Idol on?",
+ "gold_answers": [
+  "season three"
+ ],
+ "gold_titles": [
+  "American Idol",
+  "American Idol"
+ ],
+ "config": {
+  "damping": 0.5,
+  "passage_node_weight": 0.05,
+  "linking_top_k": 5,
+  "qa_top_k": 5,
+  "retrieval_top_k": 200
+ },
+ "step1_query_to_triple": [
+  {
+   "rank": 1,
+   "fact": [
+    "adam lambert",
+    "was runner up in",
+    "american idol eighth season"
+   ],
+   "score": 1.0
+  },
+  {
+   "rank": 2,
+   "fact": [
+    "american idol",
+    "is",
+    "season 3"
+   ],
+   "score": 0.9637801051139832
+  },
+  {
+   "rank": 3,
+   "fact": [
+    "fantasia barrino",
+    "won",
+    "season 3 of american idol"
+   ],
+   "score": 0.919780969619751
+  },
+  {
+   "rank": 4,
+   "fact": [
+    "diana degarmo",
+    "is",
+    "season three runner up"
+   ],
+   "score": 0.9130499362945557
+  },
+  {
+   "rank": 5,
+   "fact": [
+    "simon cowell",
+    "final season",
+    "american idol"
+   ],
+   "score": 0.9004397392272949
+  }
+ ],
+ "step2_filter": {
+  "input": [
+   [
+    "adam lambert",
+    "was runner up in",
+    "american idol eighth season"
+   ],
+   [
+    "american idol",
+    "is",
+    "season 3"
+   ],
+   [
+    "fantasia barrino",
+    "won",
+    "season 3 of american idol"
+   ],
+   [
+    "diana degarmo",
+    "is",
+    "season three runner up"
+   ],
+   [
+    "simon cowell",
+    "final season",
+    "american idol"
+   ]
+  ],
+  "output": [
+   [
+    "fantasia barrino",
+    "won",
+    "season 3 of american idol"
+   ],
+   [
+    "diana degarmo",
+    "is",
+    "season three runner up"
+   ]
+  ],
+  "removed": [
+   [
+    "adam lambert",
+    "was runner up in",
+    "american idol eighth season"
+   ],
+   [
+    "american idol",
+    "is",
+    "season 3"
+   ],
+   [
+    "simon cowell",
+    "final season",
+    "american idol"
+   ]
+  ],
+  "error": null,
+  "fallback_to_dense": false
+ },
+ "step3_seeds": {
+  "phrase_seeds": [
+   {
+    "entity": "season 3 of american idol",
+    "reset_weight": 0.919780969619751,
+    "share_of_reset": 0.007540212334814617,
+    "n_passages_with_entity": 1
+   },
+   {
+    "entity": "season three runner up",
+    "reset_weight": 0.9130499362945557,
+    "share_of_reset": 0.007485032436359371,
+    "n_passages_with_entity": 1
+   },
+   {
+    "entity": "fantasia barrino",
+    "reset_weight": 0.4598904848098755,
+    "share_of_reset": 0.0037701061674073086,
+    "n_passages_with_entity": 2
+   },
+   {
+    "entity": "diana degarmo",
+    "reset_weight": 0.18260999023914337,
+    "share_of_reset": 0.0014970065117033255,
+    "n_passages_with_entity": 5
+   }
+  ],
+  "passage_seeds_top10": [
+   {
+    "title": "American Idol (season 3)",
+    "reset_weight": 0.05000000074505806,
+    "dense_score_minmax": 1.0000000149011612,
+    "gold": false
+   },
+   {
+    "title": "American Idol (season 3)",
+    "reset_weight": 0.0493931919336319,
+    "dense_score_minmax": 0.9878638386726379,
+    "gold": false
+   },
+   {
+    "title": "American Idol",
+    "reset_weight": 0.04382863640785217,
+    "dense_score_minmax": 0.8765727281570435,
+    "gold": false
+   },
+   {
+    "title": "American Idol (season 16)",
+    "reset_weight": 0.04241032525897026,
+    "dense_score_minmax": 0.8482065051794052,
+    "gold": false
+   },
+   {
+    "title": "American Idol",
+    "reset_weight": 0.041817713528871536,
+    "dense_score_minmax": 0.8363542705774307,
+    "gold": false
+   },
+   {
+    "title": "American Idol (season 16)",
+    "reset_weight": 0.040371544659137726,
+    "dense_score_minmax": 0.8074308931827545,
+    "gold": false
+   },
+   {
+    "title": "American Idol (season 1)",
+    "reset_weight": 0.04013211652636528,
+    "dense_score_minmax": 0.8026423305273056,
+    "gold": false
+   },
+   {
+    "title": "American Idol",
+    "reset_weight": 0.039426397532224655,
+    "dense_score_minmax": 0.7885279506444931,
+    "gold": false
+   },
+   {
+    "title": "American Idol",
+    "reset_weight": 0.038988109678030014,
+    "dense_score_minmax": 0.7797621935606003,
+    "gold": true
+   },
+   {
+    "title": "American Idol",
+    "reset_weight": 0.038283850997686386,
+    "dense_score_minmax": 0.7656770199537277,
+    "gold": false
+   }
+  ],
+  "n_passage_seeds_nonzero": 11655,
+  "n_passages": 11656,
+  "reset_total": 121.98343080776976,
+  "phrase_mass": 2.4753313809633255,
+  "passage_mass": 119.50809942680644,
+  "phrase_share": 0.020292357450284623,
+  "passage_share": 0.9797076425497154,
+  "rule": "phrase weight = mean over kept facts containing the entity of (fact score / #passages with the entity); passage weight = min-max dense score x passage_node_weight (HippoRAG.py:2047-2102)"
+ },
+ "step4_ppr_top10": [
+  {
+   "rank": 1,
+   "type": "entity",
+   "label": "season three runner up",
+   "score": 0.003978408409858377,
+   "reset_weight": 0.9130499362945557,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "type": "entity",
+   "label": "season 3 of american idol",
+   "score": 0.00396357832288783,
+   "reset_weight": 0.919780969619751,
+   "gold": false
+  },
+  {
+   "rank": 3,
+   "type": "entity",
+   "label": "fantasia barrino",
+   "score": 0.002989090651487351,
+   "reset_weight": 0.4598904848098755,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "type": "entity",
+   "label": "united states",
+   "score": 0.0027184806610498925,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 5,
+   "type": "entity",
+   "label": "diana degarmo",
+   "score": 0.0021544133714920064,
+   "reset_weight": 0.18260999023914337,
+   "gold": false
+  },
+  {
+   "rank": 6,
+   "type": "passage",
+   "label": "American Idol (season 3)",
+   "score": 0.001220466029061101,
+   "reset_weight": 0.05000000074505806,
+   "gold": false
+  },
+  {
+   "rank": 7,
+   "type": "passage",
+   "label": "American Idol",
+   "score": 0.0010155441311192931,
+   "reset_weight": 0.038988109678030014,
+   "gold": true
+  },
+  {
+   "rank": 8,
+   "type": "entity",
+   "label": "jennifer hudson",
+   "score": 0.0007657557005517979,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 9,
+   "type": "entity",
+   "label": "canada",
+   "score": 0.0006396112492974415,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 10,
+   "type": "entity",
+   "label": "australia",
+   "score": 0.0006233266006627758,
+   "reset_weight": 0.0,
+   "gold": false
+  }
+ ],
+ "step4_check": "all-node PPR recomputed; passage scores equal upstream run_ppr (rtol 1e-9, top 50)",
+ "step5_top5": [
+  {
+   "rank": 1,
+   "chunk": "chunk-0353635425517460ddf277206c3b00f3",
+   "title": "American Idol (season 3)",
+   "score": 0.001220466029061101,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "chunk": "chunk-d0d40a9bf34934ed7bfd440401c03a59",
+   "title": "American Idol",
+   "score": 0.0010155441311192931,
+   "gold": true
+  },
+  {
+   "rank": 3,
+   "chunk": "chunk-a1d059b12610c842bf1c55f64a59513c",
+   "title": "American Idol (season 3)",
+   "score": 0.0005174692930101283,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "chunk": "chunk-cab6da87154970954068804fcdf5d4f9",
+   "title": "American Idol",
+   "score": 0.0002576189237940203,
+   "gold": true
+  },
+  {
+   "rank": 5,
+   "chunk": "chunk-e2b3e266f50bf80181b7bc2a4c9d1595",
+   "title": "Rachael Finch",
+   "score": 0.00023669689835970772,
+   "gold": false
+  }
+ ],
+ "dense_top5": [
+  {
+   "rank": 1,
+   "chunk": "chunk-0353635425517460ddf277206c3b00f3",
+   "title": "American Idol (season 3)",
+   "score": 1.0,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "chunk": "chunk-a1d059b12610c842bf1c55f64a59513c",
+   "title": "American Idol (season 3)",
+   "score": 0.9878638386726379,
+   "gold": false
+  },
+  {
+   "rank": 3,
+   "chunk": "chunk-675cb462b1ba576cc268eea57c5cbacd",
+   "title": "American Idol",
+   "score": 0.8765727281570435,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "chunk": "chunk-8465c443ed803cd3373807673b9a2560",
+   "title": "American Idol (season 16)",
+   "score": 0.8482064604759216,
+   "gold": false
+  },
+  {
+   "rank": 5,
+   "chunk": "chunk-527dcd48a9a030efb55fc8f67c62d62f",
+   "title": "American Idol",
+   "score": 0.8363542556762695,
+   "gold": false
+  }
+ ],
+ "recall_at_5": {
+  "hipporag": 1.0,
+  "dense": 0.0
+ },
+ "step6_reader": {
+  "answer": "Third season.",
+  "raw_response": "The runner-up of the third season of American Idol was Diana DeGarmo. The question asks for the season in which she was the runner-up, which is explicitly stated in the text as the third season. Therefore, the answer is straightforward based on the information provided. \n\nAnswer: Third season.",
+  "gold_answers": [
+   "season three"
+  ],
+  "F1": 0.5,
+  "EM": 0.0
+ },
+ "recorded_n500_run": {
+  "source": "results/musique_n500/hipporag_per_query_n500.json and dense_per_query_n500.json, row 193",
+  "hipporag_top5": [
+   "American Idol (season 3)",
+   "American Idol",
+   "American Idol (season 3)",
+   "American Idol",
+   "Rachael Finch"
+  ],
+  "hipporag_answer": "Third season.",
+  "dense_top5": [
+   "American Idol (season 3)",
+   "American Idol (season 3)",
+   "American Idol",
+   "American Idol (season 16)",
+   "American Idol"
+  ],
+  "dense_answer": "Third season.",
+  "live_top5_equals_recorded": true
+ },
+ "meta": {
+  "generated": "2026-11-16T18:11:00+05:30",
+  "index": "demo/index/hipporag_n500_musique (APFS clone of outputs/hipporag_n500_musique)",
+  "graph": {
+   "nodes": 113200,
+   "edges": 322183
+  },
+  "commit": "14deafc",
+  "src_main_identical_to_upstream_base": true
+ },
+ "cost": {
+  "llm_calls": [
+   {
+    "stage": "filter",
+    "cache_hit": true,
+    "prompt_tokens": 2820,
+    "completion_tokens": 44
+   },
+   {
+    "stage": "reader",
+    "cache_hit": true,
+    "prompt_tokens": 1229,
+    "completion_tokens": 60
+   }
+  ],
+  "llm_paid_calls": 0,
+  "llm_paid_tokens_in": 0,
+  "llm_paid_tokens_out": 0,
+  "embedding_calls": 1,
+  "embedding_texts": 1,
+  "embedding_tokens_tiktoken": 15,
+  "inr_estimate": 0.0,
+  "pricing": "list price x 1.1 at Rs 88/$ (experiments/extension/common.py:39-45)"
+ }
+}

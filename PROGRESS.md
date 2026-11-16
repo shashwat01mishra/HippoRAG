@@ -319,3 +319,31 @@ f21453e92bbdd4745a2f0b3596e323b4620be388b64c2c48277b976cdbb6368b  results/long_c
   - Tested by unit test and end to end on the rehearsal records (scratchpad only).
 - **Reproducibility.** `REPRODUCIBILITY.md` (the upstream `README.md` is left unchanged): clean clone → every number, data provenance, cost per step. The extension's filter-step cost is given as the dry-run bound only, since the actual figure depends on cache hits. Environment lock: `env/requirements-lock.txt` (`uv pip freeze`, editable install as `-e .`).
 - Tests: `pytest experiments` 40/40, upstream 93/93. `src/` + `main.py`: 0-line diff vs `upstream-base`.
+
+## 2026-11-16: Session 8: Presentation 2 prep, Phase A (blind)
+
+Brief: `notes/prediction.md` is not committed yet, so this session stays blind: no `results/extension/`, no `outputs/extension/*/results`, no extension logs or grid cost lines. Phase B waits for the prediction commit.
+
+### Step 1: swap screening (offline, ₹0) — done
+- Reviewer: Claude, delegated by the user with five criteria (wrong kind, contradicts passage, might be true, in the question's chain, broken; if in doubt n). Reasons for all 120 rows, the 10-row spot-check sample (seed 0) and the finalize output: `experiments/extension/data/review_reasons.md`. Marks in `review_v5.md` were set from that file by script (45 rows y → n, nothing else changed).
+- "In chain" checked programmatically (o′ vs question, hop answers, other supporting paragraphs): 0 hits.
+- `finalize_targets.py` → `targets_final.jsonl`: **75 kept** (groups 73 + 2). o′ frequency absent 39 / 1–9 27 / ≥10 9, so the o′-frequency split is **not** used; model_knows_o no 44 / yes 31, split used.
+- Finding (not acted on): the `entities` field of 25/120 targets lists another passage's NER entities.
+
+### Steps 2–3: reproduction demo traces + `demo/run_demo.py` (paid, ≈ ₹0.03) — done
+- Questions: of the first 500, **9** have a gold passage in HippoRAG 2's top 5 and none in dense's (`results/musique_n500/*_per_query_n500.json`); none is an extension target. Chosen: **Q193** (American Idol; both gold passages in the top 5, Recall@5 1.00 vs 0.00; reader "Third season." vs gold "season three", F1 0.50) and **Q96** (Manchuria → Japan → Yamanote Line; Recall@5 0.50 vs 0.00; the reader still says the text has no example, F1 0.15: a reader failure with the gold passage retrieved).
+- Index: `demo/index/hipporag_n500_musique`, an APFS clone (`cp -c`) of `outputs/hipporag_n500_musique` incl. its LLM cache; gitignored. Nothing under `outputs/` written. Config = `common.capture_config` (run_subset's BaseConfig). Tracing reuses `AttributionHippoRAG.trace_query`; the all-node PPR top 10 is recomputed with run_ppr's exact igraph call and asserted equal to upstream's passage scores.
+- Both live traces reproduce the recorded n=500 top 5 and answer exactly (`live_top5_equals_recorded: true`).
+- Files: `demo/traces/q193.{json,md}`, `demo/traces/q96.{json,md}`, `demo/graph_stats.md` (113,200 nodes: 101,544 entity + 11,656 passage; 322,183 edges: fact 119,456, fact+synonym 1,181, passage 146,301, synonym 55,245; 88.1 % of entities touch exactly one passage).
+- Observation for the talk: entity seeds are ~2 % of the reset mass (Q193 2.0 %, Q96 1.7 %); the other ~98 % is spread over 11,655 passage seeds at dense × 0.05. High-degree hubs (united states, canada, australia) appear in the PPR top 10.
+- `run_demo.py` tested: replay (0.07 s, offline), `--list`, missing-trace error, flag validation, `--live` default, `--live --damping 0.85 --passage_weight 0.5` (Q193: two off-topic passages enter, Recall@5 1.00 → 0.50; PPR top 10 becomes all hubs). Bug found and fixed: the tweak comparison matched by title (Q193 has several "American Idol (season 3)" passages); now matches by chunk id, traces re-saved.
+- **Cost of one `--live` run:** default settings ≈ ₹0.0000 (filter + reader hit the cloned cache; 1 query embedding); a tweak that changes the top 5 ≈ **₹0.031** (1 reader cache miss). Logs: `logs/demo_live_*.log`. Session spend so far ≈ ₹0.03.
+
+### Step 4: `CODE_MAP.md` (offline, ₹0) — done
+- Every file under `experiments/` plus `demo/` and `paper/figs/make_figures.py`: purpose, key functions with line numbers, inputs/outputs, upstream calls (found by grep), and the slide each feeds. Line numbers checked against the files; `launch_run.zsh` refs corrected.
+- Tests after Phase A: `pytest experiments` 40/40, upstream 93/93; `src/` + `main.py` 0-line diff vs `upstream-base`.
+
+### Phase A stop
+- `notes/prediction.md` does not exist, so it is not in a commit. Phase A committed and pushed; **waiting for prediction**. Phase B (seal check, analysis, RESULTS_BRIEF, deck, VIVA, ONE_PAGER_FACTS) not started; still blind.
+- Phase A spend ≈ ₹0.03 (estimate, list × 1.1; key usage not checked).
+ Inherited from the upstream OpenIE cache (2,457 of 11,656 docs have NER disjoint from their own triples). No effect on the graph: nodes come from triples only (`src/hipporag/HippoRAG.py:564`); NER is used for stats.

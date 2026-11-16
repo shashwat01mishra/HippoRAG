@@ -1,0 +1,455 @@
+{
+ "index": 96,
+ "question": "What is an example of a railroad line in the country first to invade Manchuria?",
+ "gold_answers": [
+  "Yamanote Line loop",
+  "Yamanote Line"
+ ],
+ "gold_titles": [
+  "Modern history",
+  "Tokyo"
+ ],
+ "config": {
+  "damping": 0.5,
+  "passage_node_weight": 0.05,
+  "linking_top_k": 5,
+  "qa_top_k": 5,
+  "retrieval_top_k": 200
+ },
+ "step1_query_to_triple": [
+  {
+   "rank": 1,
+   "fact": [
+    "manchuria",
+    "invaded by",
+    "japan"
+   ],
+   "score": 1.0
+  },
+  {
+   "rank": 2,
+   "fact": [
+    "japanese invasion of manchuria",
+    "began on",
+    "19 september 1931"
+   ],
+   "score": 0.8796781897544861
+  },
+  {
+   "rank": 3,
+   "fact": [
+    "mengjiang",
+    "consists of",
+    "most of manchuria"
+   ],
+   "score": 0.8574213981628418
+  },
+  {
+   "rank": 4,
+   "fact": [
+    "empire of japan",
+    "invaded",
+    "northeast china"
+   ],
+   "score": 0.8572582602500916
+  },
+  {
+   "rank": 5,
+   "fact": [
+    "japan",
+    "controlled",
+    "manchuria"
+   ],
+   "score": 0.8281365633010864
+  }
+ ],
+ "step2_filter": {
+  "input": [
+   [
+    "manchuria",
+    "invaded by",
+    "japan"
+   ],
+   [
+    "japanese invasion of manchuria",
+    "began on",
+    "19 september 1931"
+   ],
+   [
+    "mengjiang",
+    "consists of",
+    "most of manchuria"
+   ],
+   [
+    "empire of japan",
+    "invaded",
+    "northeast china"
+   ],
+   [
+    "japan",
+    "controlled",
+    "manchuria"
+   ]
+  ],
+  "output": [
+   [
+    "manchuria",
+    "invaded by",
+    "japan"
+   ],
+   [
+    "japanese invasion of manchuria",
+    "began on",
+    "19 september 1931"
+   ],
+   [
+    "empire of japan",
+    "invaded",
+    "northeast china"
+   ],
+   [
+    "japan",
+    "controlled",
+    "manchuria"
+   ]
+  ],
+  "removed": [
+   [
+    "mengjiang",
+    "consists of",
+    "most of manchuria"
+   ]
+  ],
+  "error": null,
+  "fallback_to_dense": false
+ },
+ "step3_seeds": {
+  "phrase_seeds": [
+   {
+    "entity": "19 september 1931",
+    "reset_weight": 0.8796781897544861,
+    "share_of_reset": 0.004927231729666638,
+    "n_passages_with_entity": 1
+   },
+   {
+    "entity": "japanese invasion of manchuria",
+    "reset_weight": 0.8796781897544861,
+    "share_of_reset": 0.004927231729666638,
+    "n_passages_with_entity": 1
+   },
+   {
+    "entity": "northeast china",
+    "reset_weight": 0.8572582602500916,
+    "share_of_reset": 0.004801653774776369,
+    "n_passages_with_entity": 1
+   },
+   {
+    "entity": "manchuria",
+    "reset_weight": 0.3046894371509552,
+    "share_of_reset": 0.0017066189430517244,
+    "n_passages_with_entity": 3
+   },
+   {
+    "entity": "empire of japan",
+    "reset_weight": 0.14287637174129486,
+    "share_of_reset": 0.0008002756013080563,
+    "n_passages_with_entity": 6
+   }
+  ],
+  "passage_seeds_top10": [
+   {
+    "title": "Pacific War",
+    "reset_weight": 0.05000000074505806,
+    "dense_score_minmax": 1.0000000149011612,
+    "gold": false
+   },
+   {
+    "title": "Beijing–Shanghai high-speed railway",
+    "reset_weight": 0.043202295899391174,
+    "dense_score_minmax": 0.8640459179878235,
+    "gold": false
+   },
+   {
+    "title": "Korean War",
+    "reset_weight": 0.04230988025665283,
+    "dense_score_minmax": 0.8461976051330566,
+    "gold": false
+   },
+   {
+    "title": "History of rail transport in India",
+    "reset_weight": 0.04200369864702225,
+    "dense_score_minmax": 0.840073972940445,
+    "gold": false
+   },
+   {
+    "title": "Rail transport in India",
+    "reset_weight": 0.04195891693234444,
+    "dense_score_minmax": 0.8391783386468887,
+    "gold": false
+   },
+   {
+    "title": "Battle of Weihaiwei",
+    "reset_weight": 0.04155997559428215,
+    "dense_score_minmax": 0.831199511885643,
+    "gold": false
+   },
+   {
+    "title": "Yamanote Line",
+    "reset_weight": 0.04114442691206932,
+    "dense_score_minmax": 0.8228885382413864,
+    "gold": false
+   },
+   {
+    "title": "Yalu River",
+    "reset_weight": 0.04058695584535599,
+    "dense_score_minmax": 0.8117391169071198,
+    "gold": false
+   },
+   {
+    "title": "Twenty-First Army (Japan)",
+    "reset_weight": 0.040458083152770996,
+    "dense_score_minmax": 0.8091616630554199,
+    "gold": false
+   },
+   {
+    "title": "Pacific War",
+    "reset_weight": 0.04044182226061821,
+    "dense_score_minmax": 0.8088364452123642,
+    "gold": false
+   }
+  ],
+  "n_passage_seeds_nonzero": 11655,
+  "n_passages": 11656,
+  "reset_total": 178.5339594356774,
+  "phrase_mass": 3.064180448651314,
+  "passage_mass": 175.46977898702607,
+  "phrase_share": 0.017163011778469427,
+  "passage_share": 0.9828369882215305,
+  "rule": "phrase weight = mean over kept facts containing the entity of (fact score / #passages with the entity); passage weight = min-max dense score x passage_node_weight (HippoRAG.py:2047-2102)"
+ },
+ "step4_ppr_top10": [
+  {
+   "rank": 1,
+   "type": "entity",
+   "label": "19 september 1931",
+   "score": 0.0031745998098459747,
+   "reset_weight": 0.8796781897544861,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "type": "entity",
+   "label": "united states",
+   "score": 0.0027446007507928084,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 3,
+   "type": "entity",
+   "label": "japanese invasion of manchuria",
+   "score": 0.002569183911476479,
+   "reset_weight": 0.8796781897544861,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "type": "entity",
+   "label": "northeast china",
+   "score": 0.0024801088075192598,
+   "reset_weight": 0.8572582602500916,
+   "gold": false
+  },
+  {
+   "rank": 5,
+   "type": "entity",
+   "label": "empire of japan",
+   "score": 0.0009150439448017187,
+   "reset_weight": 0.14287637174129486,
+   "gold": false
+  },
+  {
+   "rank": 6,
+   "type": "passage",
+   "label": "Pacific War",
+   "score": 0.0008961873621271364,
+   "reset_weight": 0.037754423916339874,
+   "gold": false
+  },
+  {
+   "rank": 7,
+   "type": "entity",
+   "label": "manchuria",
+   "score": 0.0008858439072836818,
+   "reset_weight": 0.3046894371509552,
+   "gold": false
+  },
+  {
+   "rank": 8,
+   "type": "entity",
+   "label": "canada",
+   "score": 0.0007290284979040357,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 9,
+   "type": "entity",
+   "label": "australia",
+   "score": 0.0006824898137778016,
+   "reset_weight": 0.0,
+   "gold": false
+  },
+  {
+   "rank": 10,
+   "type": "entity",
+   "label": "japan",
+   "score": 0.0006345534427232242,
+   "reset_weight": 0.0,
+   "gold": false
+  }
+ ],
+ "step4_check": "all-node PPR recomputed; passage scores equal upstream run_ppr (rtol 1e-9, top 50)",
+ "step5_top5": [
+  {
+   "rank": 1,
+   "chunk": "chunk-ec1f084d71bd5f83b41b95bef0837e8b",
+   "title": "Pacific War",
+   "score": 0.0008961873621271364,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "chunk": "chunk-9972cbb58c8cacdb1e7fbd21e5d7697a",
+   "title": "Qing dynasty",
+   "score": 0.0006118550181896137,
+   "gold": false
+  },
+  {
+   "rank": 3,
+   "chunk": "chunk-0be58443f38eb8327ef06f60eab8eb87",
+   "title": "Pacific War",
+   "score": 0.00023105376970185875,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "chunk": "chunk-a4bf14c24284a7f368a88063fecbb921",
+   "title": "Korean War",
+   "score": 0.000210941605015072,
+   "gold": false
+  },
+  {
+   "rank": 5,
+   "chunk": "chunk-5d89863e70374b947fcbe46626c0dd20",
+   "title": "Modern history",
+   "score": 0.0001834106879452716,
+   "gold": true
+  }
+ ],
+ "dense_top5": [
+  {
+   "rank": 1,
+   "chunk": "chunk-0be58443f38eb8327ef06f60eab8eb87",
+   "title": "Pacific War",
+   "score": 1.0,
+   "gold": false
+  },
+  {
+   "rank": 2,
+   "chunk": "chunk-0c4f3db5e02fb0ffefa012ec87da82fd",
+   "title": "Beijing–Shanghai high-speed railway",
+   "score": 0.8640459179878235,
+   "gold": false
+  },
+  {
+   "rank": 3,
+   "chunk": "chunk-a4bf14c24284a7f368a88063fecbb921",
+   "title": "Korean War",
+   "score": 0.8461976051330566,
+   "gold": false
+  },
+  {
+   "rank": 4,
+   "chunk": "chunk-8d8cb6372e530bc08f5a8cc6e9f9fa49",
+   "title": "History of rail transport in India",
+   "score": 0.8400739431381226,
+   "gold": false
+  },
+  {
+   "rank": 5,
+   "chunk": "chunk-84c9ef729e2783e96d1667e7edf37eeb",
+   "title": "Rail transport in India",
+   "score": 0.8391783237457275,
+   "gold": false
+  }
+ ],
+ "recall_at_5": {
+  "hipporag": 0.5,
+  "dense": 0.0
+ },
+ "step6_reader": {
+  "answer": "The text does not provide a specific example of a railroad line in Manchuria.",
+  "raw_response": "The country that first invaded Manchuria was Japan. The text mentions that during the Korean War, North Korea provided the Chinese Communists in Manchuria with \"2,000 railway cars worth of matériel.\" This implies that there were railroad lines in Manchuria that were significant for transportation and logistics during that time. However, the specific name of a railroad line is not provided in the text. Therefore, while we can infer the existence of railroad lines, we cannot identify a specific example from the information given. \n\nAnswer: The text does not provide a specific example of a railroad line in Manchuria.",
+  "gold_answers": [
+   "Yamanote Line loop",
+   "Yamanote Line"
+  ],
+  "F1": 0.15384615384615385,
+  "EM": 0.0
+ },
+ "recorded_n500_run": {
+  "source": "results/musique_n500/hipporag_per_query_n500.json and dense_per_query_n500.json, row 96",
+  "hipporag_top5": [
+   "Pacific War",
+   "Qing dynasty",
+   "Pacific War",
+   "Korean War",
+   "Modern history"
+  ],
+  "hipporag_answer": "The text does not provide a specific example of a railroad line in Manchuria.",
+  "dense_top5": [
+   "Pacific War",
+   "Beijing–Shanghai high-speed railway",
+   "Korean War",
+   "Rail transport in India",
+   "History of rail transport in India"
+  ],
+  "dense_answer": "The text does not provide an example of a railroad line in Japan related to the invasion of Manchuria.",
+  "live_top5_equals_recorded": true
+ },
+ "meta": {
+  "generated": "2026-11-16T18:11:08+05:30",
+  "index": "demo/index/hipporag_n500_musique (APFS clone of outputs/hipporag_n500_musique)",
+  "graph": {
+   "nodes": 113200,
+   "edges": 322183
+  },
+  "commit": "14deafc",
+  "src_main_identical_to_upstream_base": true
+ },
+ "cost": {
+  "llm_calls": [
+   {
+    "stage": "filter",
+    "cache_hit": true,
+    "prompt_tokens": 2827,
+    "completion_tokens": 71
+   },
+   {
+    "stage": "reader",
+    "cache_hit": true,
+    "prompt_tokens": 1554,
+    "completion_tokens": 123
+   }
+  ],
+  "llm_paid_calls": 0,
+  "llm_paid_tokens_in": 0,
+  "llm_paid_tokens_out": 0,
+  "embedding_calls": 1,
+  "embedding_texts": 1,
+  "embedding_tokens_tiktoken": 18,
+  "inr_estimate": 0.0,
+  "pricing": "list price x 1.1 at Rs 88/$ (experiments/extension/common.py:39-45)"
+ }
+}

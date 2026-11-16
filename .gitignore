@@ -28,3 +28,6 @@ logs/*
 *.egg-info/
 # Extension target set is versioned (small JSONL, reproducible from select_targets.py)
 !experiments/extension/data/
+# Demo working index: APFS clone of outputs/hipporag_n500_musique (1.5 GB logical), rebuilt by demo/run_demo.py --make_index
+demo/index/
+.DS_Store
