@@ -1,0 +1,89 @@
+% One-page report, CS F429 Presentation 2. Build: cd report && tectonic -X compile one_page_report.tex
+% Every number carries a source comment. Sources:
+%   R  = results/musique_n500/bootstrap_n500.txt
+%   P  = analysis/grid_v5_final/phase_b.md
+%   B  = analysis/grid_v5_final/bootstrap.csv
+%   U  = analysis/grid_v5_final/followup.md
+%   RB = RESULTS_BRIEF.md   OP = ONE_PAGER_FACTS.md
+\documentclass[10pt,a4paper]{article}
+\usepackage[a4paper,margin=1.5cm,top=1.1cm,bottom=1.1cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{booktabs,enumitem,microtype,tabularx}
+\setlist{nosep,leftmargin=1.2em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+\pagestyle{empty}
+\newcommand{\sect}[1]{\par\vspace{3pt}{\large\bfseries #1}\par\vspace{0pt}}
+
+\begin{document}
+
+{\Large\bfseries When does retrieval memory resist correction? HippoRAG 2 on MuSiQue}\par
+\vspace{2pt}
+Shashwat Mishra (2024A1PS1260P) \textbullet{} CS F429, Group 6 \textbullet{} 18 Nov 2026\par
+Paper: \emph{From RAG to Memory: Non-Parametric Continual Learning for Large Language Models} (HippoRAG 2, ICML 2025, arXiv 2502.14802)\par
+Code: \texttt{github.com/shashwat01mishra/HippoRAG}, branch \texttt{dev}; numbers from commit \texttt{6b4fe8f}; \texttt{src/} and \texttt{main.py} identical to upstream.
+
+\sect{1. Reproduction}
+Setup: MuSiQue, first 500 questions of the authors' 1,000-question sample, full 11,656-passage corpus;
+gpt-4o-mini for every LLM role, text-embedding-3-small; the dense baseline ranks HippoRAG~2's own passage vectors (identical copy), so only the graph differs.
+
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+ & HippoRAG 2 & Dense & Gap [95\% paired-bootstrap CI] \\
+\midrule
+Recall@5 & 62.00 & 56.10 & +5.90 [+3.73, +8.00] \\  % R
+F1       & 44.93 & 40.27 & +4.66 [+1.52, +7.69] \\  % R
+\bottomrule
+\end{tabular}
+
+The paper's own gpt-4o-mini gaps, +4.5 (Recall@5) and +3.3 (F1), fall inside these intervals. % RB section 1 (paper App. C, Tables 8-9)
+We reproduce the gap, not the absolute numbers (different embedder).
+
+\sect{2. Proposed improvement 1: an update-resistance protocol}
+\begin{itemize}
+\item Inject a counterfactual: in the gold passage, swap the answer object $o$ for a plausible false $o'$. Grid: $n \in \{1,3\}$ stale copies of the old passage $\times$ $k \in \{0,1,2,3,5\}$ corrections. Dense retrieval on the same index is the control.
+\item Per-stage attribution of every miss: A not among the candidate facts, B removed by the filter, C not seeded, D old passage scores higher, E outside the top 5.
+\item Blind: the grid's result files were sealed by sha256 before analysis, and the prediction was committed (\texttt{460c50a}) before any result was opened.
+\item N = 75 hand-screened swaps (one per gold passage). % RB header
+\end{itemize}
+
+\sect{3. Proposed improvement 2: contradiction-aware seeding}
+Among the facts kept by the filter, if two share subject and relation but differ in object, drop the older one before seeding PageRank
+(\texttt{drop\_superseded}, \texttt{experiments/extension/attrib\_rag.py}). Detection is an oracle: the correction copies the old triple with only the object changed.
+
+\sect{4. Results (N = 75)}
+\begin{tabularx}{\textwidth}{@{}Xp{6.6cm}l@{}}
+\toprule
+Measure & Value & 95\% CI \\
+\midrule
+Correction@5 (a correction in the top 5), pooled over the 8 cells with $k \ge 1$ & dense 39.0\%, HippoRAG 2 41.5\%, + fix 41.7\% & \\ % P
+\quad HippoRAG 2 $-$ dense & +2.5 points & [$-6.7$, +11.3] \\ % P
+\quad fix $-$ HippoRAG 2 & +0.2 points & [0.0, +0.5] \\ % P
+1 $\rightarrow$ 3 stale copies, change in correction@5: HippoRAG 2 & $-11.7$ points & [$-17.0$, $-6.7$] \\ % P / U
+\quad dense & $-0.7$ points & [$-1.7$, 0.0] \\ % P / U
+\quad interaction (HippoRAG 2 change $-$ dense change) & $\mathbf{-11.0}$ points & [$-16.7$, $-6.0$] \\ % U section 1
+Where the fix fires & 7 questions; old seed removed 7/7, correction outranks old 7/7 & \\ % P / OP
+Contamination@5 (old passages in top 5) at $n=3$, $k=5$ & 0.61 $\rightarrow$ 0.41 with the fix & [$-0.40$, $-0.04$] \\ % B line 37
+\bottomrule
+\end{tabularx}
+
+\sect{5. Findings}
+\begin{itemize}
+\item \textbf{The filter is not the bottleneck; the last-hop fact rarely becomes a seed at all.} The corrected fact is among the 5 candidate facts in 9 of 75 questions, and the filter keeps 8 of those 9. % P
+Before any correction the old fact is also a candidate in only 9 of 75, so most passages reach the top 5 through their own passage seed and graph spread. % U section 2
+\item \textbf{Stale copies hurt the graph, not dense} ($-11.7$ vs $-0.7$ points). In the 35 records lost at $n=3$, an old copy is in the top 5 in 19, and the old-versus-new PageRank order follows passage cosine (same sign in 34 of 35, $\rho = +0.91$), not node degree ($\rho = +0.14$). % RB section 3 / U section 3
+\item \textbf{The fix is correct but rarely has a seed to act on}: it fires in 7 of 75 questions, and those already succeed. % P
+\end{itemize}
+
+\sect{6. Next proposed improvements (proposals, not implemented)}
+\begin{itemize}
+\item A larger \texttt{linking\_top\_k}, or linking aimed at the last hop, so the corrected fact can become a seed.
+\item Resolve contradictions at write time with validity intervals (as Zep/Graphiti do), or collapse duplicate stale passages at indexing.
+\item Put dates on passages so the reader can prefer the newer value.
+\end{itemize}
+
+\textbf{Limits.} Synthetic swaps; oracle contradiction detection; N = 75; one dataset (MuSiQue); one LLM (gpt-4o-mini).
+
+\end{document}
