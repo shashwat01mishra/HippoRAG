@@ -1,6 +1,6 @@
 # Viva answers
 
-Try `VIVA.md` first. References are `file:line`; `H` = `src/hipporag/HippoRAG.py`. Result sources: R = `results/musique_n500/bootstrap_n500.txt`, S = `analysis/grid_v5_final/summary.md`, U = `analysis/grid_v5_final/followup.md`, B = `analysis/grid_v5_final/bootstrap.csv`, P = `analysis/grid_v5_final/phase_b.md`, M = `analysis/grid_v5_final_minus_specialist/phase_b.md`, T = `paper/sections/reproduction.tex`, Q = `demo/traces/q193.md`, L = `PROGRESS.md`.
+Try `VIVA.md` first. References are `file:line`; `H` = `src/hipporag/HippoRAG.py`. Result sources: R = `results/musique_n500/bootstrap_n500.txt`, PR = `results/musique_n500/precision_at5.txt`, N = `notes/paper_todo.md`, S = `analysis/grid_v5_final/summary.md`, U = `analysis/grid_v5_final/followup.md`, B = `analysis/grid_v5_final/bootstrap.csv`, P = `analysis/grid_v5_final/phase_b.md`, M = `analysis/grid_v5_final_minus_specialist/phase_b.md`, T = `paper/sections/reproduction.tex`, Q = `demo/traces/q193.md`, L = `PROGRESS.md`.
 
 ## A. The paper
 
@@ -12,7 +12,7 @@ Try `VIVA.md` first. References are `file:line`; `H` = `src/hipporag/HippoRAG.py
 
 **4.** Passage seeds let dense similarity contribute and make sure a relevant passage with no linked entity can still score. The weight is small so entity seeds, concentrated on a few nodes, are not drowned. Default 0.05 (`src/hipporag/utils/config_utils.py:91–94`); applied at `H:2093–2099`. Even so, passages hold 98.0 % of the reset mass in my demo trace because there are 11,655 of them (Q).
 
-**5.** It adds new passages and checks that performance on existing questions holds, i.e. growth. It does not test a fact that changes while the old passage stays indexed. (Confirm the section number in the paper; the "6.3" on my slide is from my notes.)
+**5.** It adds new passages and checks that performance on existing questions holds, i.e. growth. It does not test a fact that changes while the old passage stays indexed. This is the paper's §6.3, "Robustness to Corpus Expansion" (confirmed against the arXiv HTML on 17 Nov; `notes/paper_todo.md`).
 
 **6.** Absolute scores (mine are lower: 62.0 vs 74.2 Recall@5; R, T). Filter behaviour, since it is a prompted LLM judgement and the shipped prompt was tuned for Llama-3.3 (`experiments/run_subset.py:130`). Triple quality, which sets the graph. What did transfer: the gap over dense.
 
@@ -26,7 +26,7 @@ Try `VIVA.md` first. References are `file:line`; `H` = `src/hipporag/HippoRAG.py
 
 **10.** To down-weight entities that occur in many passages, like an inverse document frequency: `H:2064–2065`. In Q193 "diana degarmo" (5 passages) gets 0.18 while "season three runner up" (1 passage) gets 0.91 (Q).
 
-**11.** By symmetry. Mass leaves the subject along its passage edges in proportion to edge weight, and every passage, old or new, hangs off the subject the same way. Old-object and new-object nodes only pass mass back among their own passages. Result: d/((1+d)(n+k)) for each passage (`paper/sections/theory.tex`, Prop. 1; verified by `experiments/theory/verify_margin.py`, L Session 7).
+**11.** By symmetry. Mass leaves the subject along its passage edges in proportion to edge weight, and every passage, old or new, hangs off the subject the same way; old-object and new-object nodes only pass mass back among their own passages. Result: d/((1+d)(n+k)) for each passage (`paper/sections/theory.tex`, Prop. 1; verified by `experiments/theory/verify_margin.py`, L Session 7). For a general reset vector the toy model's margin is, in graph A (passage edges only), x − y = [2(1−d)/(2−d²)]·[(r_o − r_m) + d(r_D/n − r_M/k)] (L, Session 7); in graph B (with fact edges, `theory.tex` Prop. 2) the constants change but the terms are the same. The subject's seed cancels, so old versus new is decided by the passage seeds (r_o, r_m) and the object seeds (r_D, r_M). The data then tested this: the object-seed term is mostly absent, because the corrected fact is a candidate in only 9 of 75 questions (P); in the 35 records lost at n = 3 the PageRank margin has the sign of the cosine margin in 34, ρ = +0.91, and no relation to node degree, ρ = +0.14 (U §3). So in practice the **passage-seed term** decides, which is why the order follows cosine (passage seeds are 0.05 × dense similarity). That is a statement about the seeds' passage term, not about "the seed stage" as a pipeline stage.
 
 **12.** The 98 % is spread over 11,655 passages, about 0.0084 % each; the 2 % sits on 4 entities, about 0.5 % each (Q, section 3). Per node, entity seeds are far heavier, so they and their neighbours lead.
 
@@ -86,3 +86,11 @@ Try `VIVA.md` first. References are `file:line`; `H` = `src/hipporag/HippoRAG.py
 `.venv/bin/python experiments/extension/phase_b.py --out analysis/grid_v5_final` (and again with `--out analysis/grid_v5_final_minus_specialist --drop_rows 19,25,29,45,91,100,109,114`);
 `.venv/bin/python deck/make_figs.py`.
 The traces need the index clone and one query embedding each: `demo/run_demo.py --make_index`, then `--live --save --q 193` and `--q 96`, about ₹0.00 (L Session 8). The per-query and grid records themselves are in `results/`, so nothing paid is needed.
+
+## Added 17 Nov
+
+**35.** Recall@5 counts what share of a question's gold passages are in the top 5; precision@5 counts what share of the 5 slots hold gold passages. In the first 500 questions, 269 have 2 gold passages, 149 have 3 and 82 have 4, so even a perfect retriever has precision@5 of 52.52, and per question precision@5 = recall@5 × (gold ÷ 5) (checked for every question). HippoRAG 2: Recall@5 62.00, precision@5 30.12; dense: 56.10 and 27.72 (PR; computed offline by `experiments/precision_at5.py` from the per-query files). Precision does not change the ranking of the two systems. In the extension, the precision-type number is contamination@5, the count of stale passages in the top 5, not a precision percentage.
+
+**36.** "Is there a threshold number of stale copies?" No: the grid has only n = 1 and n = 3, so it shows a penalty of going from 1 to 3 copies (−11.7 vs −0.7 points; interaction −11.0 [−16.7, −6.0]; U §1), not a threshold. Finding a threshold would need more values of n.
+
+**37.** MemoryAgentBench (Hu, Wang & McAuley 2025, arXiv 2507.05257) already tests conflict resolution: in its v1 Table 2, HippoRAG-v2 scores 54.0 vs NV-Embed-v2 55.0 single-hop and 5.0 vs 6.0 multi-hop (N). It does not attribute failures to retrieval stages or vary the number of stale copies; this project does both. (In its latest version the category is renamed "Selective Forgetting" and NV-Embed-v2 has no row; cite v1.)

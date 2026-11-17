@@ -50,6 +50,11 @@ Upstream functions are written `HippoRAG.method` and live in `src/hipporag/Hippo
 - **Calls upstream.** `RetrievalRecall` (`src/hipporag/evaluation/retrieval_eval.py`), `QAF1Score`, `QAExactMatch` (`src/hipporag/evaluation/qa_eval.py`).
 - **Deck.** Slide 4: Recall@5 gap +5.90 [+3.73, +8.00] and F1 gap +4.66 [+1.52, +7.69] at n = 500 (`results/musique_n500/bootstrap_n500.txt`).
 
+### `experiments/precision_at5.py` (43 lines)
+- **Purpose.** Precision@5 for the n = 500 runs, offline. Counts gold passages per question, computes recall@5 and precision@5 per question, checks precision@5 = recall@5 × #gold / 5, and reports the perfect-retriever precision@5.
+- **In.** `results/musique_n500/{hipporag,dense}_per_query_n500.json`, `reproduce/dataset/musique.json`. **Out.** stdout, saved as `results/musique_n500/precision_at5.txt`.
+- **Calls upstream.** None. **Deck.** Backup "Recall@5 is not precision@5" (52.52; 30.12 vs 27.72).
+
 ### `experiments/smoke_test_gateway.py` (50 lines)
 - **Purpose.** The smallest paid check of the AICredits gateway: one chat call and one embedding call; it prints the resolved model IDs and token usage. `scrub` :24 removes the key from error text.
 - **Calls upstream.** None (OpenAI SDK directly). **Deck.** None (setup).

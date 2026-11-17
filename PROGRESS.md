@@ -375,7 +375,7 @@ Brief: `notes/prediction.md` is not committed yet, so this session stays blind: 
 - `deck/deck.tex` → `deck/deck.pdf` (tectonic; 10 main + 7 backup pages; custom minimal look), figures from `deck/make_figs.py` (reads the analysis files) plus `paper/figs/{pipeline,repro_gap,toy_graph}.pdf`; `deck/SPEAKER_NOTES.md` with a source per number. The palette validator from the dataviz skill could not be run (no `node` on this machine); the two series are blue vs gray with different markers and direct labels.
 - `VIVA.md` (34 questions, 3 "predict before you run") and `VIVA_ANSWERS.md` with file:line references. The three live tweaks were run to get the observed answers (`logs/demo_live_viva_20261116.log`, `--no_reader`, ≈ ₹0.00 each).
 - `ONE_PAGER_FACTS.md`. `CODE_MAP.md` updated for `phase_b.py` and `deck/make_figs.py`.
-- Not verified: "Section 6.3" of the HippoRAG 2 paper on slide 2 is from the user's outline; no file in the repo confirms the section number.
+- HippoRAG 2 §6.3 is "Robustness to Corpus Expansion" (adds passages only); confirmed by the user against the arXiv HTML on 17 Nov (`notes/paper_todo.md`).
 - Tests: `pytest experiments` 40/40, upstream 93/93; `src/` + `main.py` 0-line diff vs `upstream-base`; `paper/` untouched.
 - **Session 8 spend ≈ ₹0.03** (estimate, list × 1.1; one reader call in a live tweak; key usage not checked). Cap for this brief: ₹50.
 
@@ -393,3 +393,25 @@ Brief: `notes/prediction.md` is not committed yet, so this session stays blind: 
 - Rank shift when copies are added (corrections retrieved at n = 1): dense 64 unchanged / 54 down 1–2 / 0 down ≥ 3, 2 of 118 lost; HippoRAG 2 39 / 59 / 30 (14 up), 35 of 142 lost, 21 of them from rank 2 or 3.
 - Hypothesis verdict: holds in part. Dense's correction does sit higher (rank 1: 49 of 118 vs 9 of 142); the count of other-hop passages does not differ; two extra copies explain at most 14 of HippoRAG 2's 35 losses. One backup slide added (deck: 12 main + 8 backup).
  Inherited from the upstream OpenIE cache (2,457 of 11,656 docs have NER disjoint from their own triples). No effect on the graph: nodes come from triples only (`src/hipporag/HippoRAG.py:564`); NER is used for stats.
+
+## 2026-11-17: Session 9: Presentation 2 readiness (offline, ₹0; no API calls)
+
+### Block 0: health check — passed
+- Tree clean and pushed at `6b4fe8f`; `src/` + `main.py` 0-line diff vs `upstream-base`. Tests: `pytest experiments` 40/40, upstream 93/93.
+- Demo replay time: Q193 0.03 s, Q96 0.03 s.
+- `phase_b.py` and `followup.py` regenerated into the scratchpad: `phase_b.{md,json}`, `followup.{md,json}` and the minus-specialist `phase_b.md` are byte-identical to the committed files.
+- `notes/REVIEW_17NOV_for_NotebookLM.md` does not exist (named in the Block 2 instructions); viva answers were checked against the fixes and `RESULTS_BRIEF.md` only.
+
+### Block 1: one-page report — done (`a454244`)
+- `report/one_page_report.{tex,pdf}`: one A4 page, 10 pt, source comment per number. Finding 1 is worded "the filter is not the bottleneck; the last-hop fact rarely becomes a seed at all" to agree with `RESULTS_BRIEF.md` §3.
+
+### Block 2: deck fixes
+- New slide 2: verbatim code of the two overrides (`attrib_rag.py` lines 52, 76, 89–94, 96–101) and six verbatim lines of the Q193 replay; the pipeline box-diagram slide was removed.
+- Theory slide rewritten as a prediction tested by the data (graph A margin from Session 7; 9 of 75; ρ = +0.91 vs +0.14 from `followup.md` §3).
+- Results slide: k = 0 baseline 0.57 vs 0.36 and a note that contamination@5 is the extension's precision-type number (a count).
+- Backups: precision@5 slide (269 / 149 / 82 gold; perfect 52.52; HippoRAG 2 30.12, dense 27.72; new `experiments/precision_at5.py` → `results/musique_n500/precision_at5.txt`); MemoryAgentBench row (v1 Table 2, verified on arXiv; `notes/paper_todo.md`).
+- Title: "12 points ... 1" replaced by the source values 11.7 and 0.7; "correction recall" removed everywhere (now correction@5).
+- Unsourced-number grep ("m = 32", "3.5", "4.4", "0.54", "0.89") over deck, notes, viva and one-pager: no matches, nothing removed.
+- `paper/` not edited; the MemoryAgentBench citation, the §6.3 wording and the precision note are listed in `notes/paper_todo.md`.
+- Speaker notes rewritten for the new order, 9:40 of a 10:00 limit. `VIVA_ANSWERS.md`: answer 5 (§6.3 confirmed), 11 (toy margin tested by data; "passage-seed term", not "seed stage"), new 35 (precision), 36 (penalty, not threshold), 37 (MemoryAgentBench); `VIVA.md` questions 35–37.
+

@@ -54,4 +54,11 @@ Answer each one aloud before opening `VIVA_ANSWERS.md`. The "predict before you 
 33. The swap screening was done by Claude. Why should I trust the 75?
 34. If I delete `analysis/` and `demo/traces/`, what exactly do you run to get every number on your slides back, and what does it cost?
 
-(34 questions: the 30 hardest plus 4 on authorship, since those will come first.)
+(34 questions: the 30 hardest plus 4 on authorship, since those will come first. Questions 35–37 were added on 17 Nov.)
+
+## G. Added 17 Nov
+
+35. Your Recall@5 is 62. What is HippoRAG 2's precision@5, and what is the best any retriever could get on these questions?
+36. At how many stale copies does HippoRAG 2 break?
+37. MemoryAgentBench already tests conflict resolution for HippoRAG 2. What does your project add?
+

@@ -1,0 +1,8 @@
+$ .venv/bin/python experiments/precision_at5.py
+n = 500 (first 500 questions of reproduce/dataset/musique.json)
+gold passages per question: 2 gold: 269 questions, 3 gold: 149 questions, 4 gold: 82 questions
+perfect retriever mean precision@5: 52.52
+system       Recall@5  Precision@5
+HippoRAG 2      62.00        30.12
+dense           56.10        27.72
+identity precision@5 = recall@5 x #gold / 5 holds for every question

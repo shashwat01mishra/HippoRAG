@@ -5,6 +5,7 @@
 \usepackage[scaled=0.95]{helvet}
 \renewcommand{\familydefault}{\sfdefault}
 \usepackage{graphicx,booktabs,amsmath}
+\usepackage{fancyvrb}
 \graphicspath{{figs/}{../paper/figs/}}
 
 % ---- minimal look: white, one accent, no chrome ----
@@ -41,11 +42,46 @@
 \color{accent}\rule{3em}{0.25em}\color{ink}
 
 \vspace{0.8em}
-Stale copies of an old fact cost a graph memory 12 points\\
-of correction recall. They cost dense search 1.
+Two extra stale copies of an old fact cost a graph memory\\
+11.7 points of correction@5. They cost dense search 0.7.
 
 \vspace{1.4em}
 \quiet{Shashwat Mishra \quad CS F429 \quad 18 Nov 2026}
+\end{frame}
+
+% 2 ------------------------------------------------------------------
+\begin{frame}[fragile]{The code: two overrides, \texttt{src/} untouched}
+\vspace{-0.4em}
+{\color{muted}\scriptsize \texttt{experiments/extension/attrib\_rag.py} lines 52, 76, 89--94, 96--101, verbatim (\ldots{} = omitted)}
+\begin{Verbatim}[fontsize=\fontsize{6.2}{7.0}\selectfont]
+class AttributionHippoRAG(HippoRAG):
+    ...
+    def rerank_facts(self, query, query_fact_scores):
+        ...   # lines 77-88: record the top-5 candidate facts as trace["stage_a"]
+        indices, facts, log = super().rerank_facts(query, query_fact_scores)
+        trace["stage_b"] = {"kept": [list(f) for f in facts], "error": log.get("error")}
+        if self.apply_fix:
+            indices, facts, dropped = self.drop_superseded(indices, facts)
+            trace["fix"] = {"dropped": dropped, "kept": [list(f) for f in facts]}
+        return indices, facts, log
+
+    def run_ppr(self, reset_prob, damping=0.5):
+        trace = self._active_trace()
+        trace["reset"] = np.where(np.isnan(reset_prob) | (reset_prob < 0), 0, reset_prob).copy()
+        ids, scores = super().run_ppr(reset_prob, damping)
+        trace["ppr"] = (ids, scores)
+        return ids, scores
+\end{Verbatim}
+\vspace{-0.5em}
+{\color{muted}\scriptsize \texttt{demo/run\_demo.py -{}-q 193}: six output lines, verbatim (full trace: \texttt{demo/traces/q193.md})}
+\begin{Verbatim}[fontsize=\fontsize{6.2}{7.0}\selectfont]
+[2] recognition-memory filter (gpt-4o-mini): 5 in -> 2 kept
+[3] PPR reset vector: phrases 2.0% of mass, passages 98.0%
+[5] final top 5 passages            vs  dense top 5
+  2. GOLD American Idol                            American Idol (season 3)
+  4. GOLD American Idol                            American Idol (season 16)
+  Recall@5: HippoRAG 1.00   dense 0.00
+\end{Verbatim}
 \end{frame}
 
 % 2 ------------------------------------------------------------------
@@ -63,14 +99,6 @@ A fact changes.\\{\color{accent}\bfseries The new one should win.}\\[0.4em]
 \end{columns}
 \end{frame}
 
-% 3 ------------------------------------------------------------------
-\begin{frame}{HippoRAG 2 in one picture}
-\centering
-\includegraphics[width=0.98\textwidth,height=0.66\textheight,keepaspectratio]{pipeline.pdf}
-
-\quiet{MuSiQue index: 11,656 passages, 101,544 entities, 322,183 edges}
-\end{frame}
-
 \begin{frame}
 \centering\vspace{5em}
 \bignum{LIVE DEMO}
@@ -79,7 +107,7 @@ A fact changes.\\{\color{accent}\bfseries The new one should win.}\\[0.4em]
 \texttt{python demo/run\_demo.py -{}-q 193 -{}-pause}
 
 \vspace{0.6em}
-\quiet{then: \texttt{-{}-live -{}-damping 0.85 -{}-passage\_weight 0.5}}
+\quiet{offline replay; optional live tweak: \texttt{-{}-live -{}-damping 0.85 -{}-passage\_weight 0.5}}
 \end{frame}
 
 % 4 ------------------------------------------------------------------
@@ -108,22 +136,24 @@ F1 & +4.7 & +3.3\\
 \end{frame}
 
 % 5 ------------------------------------------------------------------
-\begin{frame}{Theory: repetition alone gives a tie}
-\begin{columns}[c]
-\column{0.46\textwidth}
-\includegraphics[width=\textwidth]{toy_graph.pdf}
-\column{0.52\textwidth}
-Seed only the shared subject:
-\[x_{\text{old}} = y_{\text{new}} = \frac{d}{(1+d)(n+k)}\]
-\quiet{$n$ old passages, $k$ corrections, damping $d$}
+\begin{frame}{Theory predicted it; the data tested it}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Toy model} \quiet{(graph A: passage edges only)}
+\[x - y = \tfrac{2(1-d)}{2-d^2}\Big[(r_o - r_m) + d\Big(\tfrac{r_D}{n} - \tfrac{r_M}{k}\Big)\Big]\]
+\quiet{$x, y$: one old, one new passage. $r_o, r_m$: passage seeds. $r_D, r_M$: old and new object seeds.}
 
-\vspace{0.8em}
-So resistance can only come from
+\vspace{0.5em}
+The subject's seed \textbf{cancels}. Old vs new is set by the \textbf{passage seeds} and the \textbf{object seeds}.
+\column{0.46\textwidth}
+\textbf{Data}
 \begin{itemize}
-\item the correction getting \textbf{no seed}
-\item the \textbf{graph} favouring the old object
-\item old copies \textbf{crowding} the top 5
+\item object seed: the corrected fact is a candidate in only \textbf{9 of 75}
+\item 35 records lost at $n = 3$: PPR margin has the sign of the cosine margin in \textbf{34}, $\rho = +0.91$
+\item no relation to node degree: $\rho = +0.14$
 \end{itemize}
+\vspace{0.4em}
+So in practice the {\color{accent}\bfseries passage-seed term decides}.
 \end{columns}
 \end{frame}
 
@@ -169,7 +199,8 @@ difference \textbf{$-$11.0} \quiet{[$-16.7$, $-6.0$]}\\
 \column{0.65\textwidth}
 \includegraphics[width=\textwidth]{correction.pdf}
 
-\quiet{\footnotesize Overall the two are level: 41.5\% vs 39.0\%, +2.5 points [$-6.7$, $+11.3$]. N = 75.}
+{\color{muted}\scriptsize \textbf{Baseline} ($k = 0$, $n = 1$): original passage in the top 5, 0.57 (HippoRAG 2) vs 0.36 (dense). Overall correction@5 41.5\% vs 39.0\%, +2.5 [$-6.7$, $+11.3$]. N = 75.\\
+correction@5 is a hit rate. The precision-type number in this extension is contamination@5: stale passages in the top 5, as a count.}
 \end{columns}
 \end{frame}
 
@@ -247,7 +278,7 @@ Fix leaves unchanged facts alone & 0 facts dropped wrongly & \hit\\
 \end{frame}
 
 \begin{frame}{Backup: how HippoRAG 2 differs}
-\small
+\footnotesize
 \begin{tabular}{@{}lp{0.72\textwidth}@{}}
 \toprule
 GraphRAG & community summaries written by an LLM at index time; answers from summaries\\
@@ -255,21 +286,36 @@ RAPTOR & tree of recursive cluster summaries; retrieves across tree levels\\
 LightRAG & entity/relation graph with dual-level keyword retrieval\\
 HippoRAG 1 & entity graph + PageRank seeded by query entities; no passage nodes\\
 Zep / Mem0 & agent memory with explicit fact updates or invalidation\\
+MemoryAgentBench & conflict resolution (v1, Tab.\ 2): HippoRAG-v2 vs NV-Embed-v2 54.0 vs 55.0 single-hop, 5.0 vs 6.0 multi-hop\\
 \midrule
 \textbf{HippoRAG 2} & passages are graph nodes; seeds come from query-to-triple matches kept by an LLM filter, plus every passage at dense $\times$ 0.05; no summaries\\
 \bottomrule
 \end{tabular}
+
+\vspace{0.4em}
+\quiet{MemoryAgentBench neither attributes failures to retrieval stages nor varies the number of stale copies. That is the gap this project fills.}
 \end{frame}
 
-\begin{frame}{Backup: Recall@k is not precision}
-\begin{itemize}
-\item \textbf{Recall@5}: share of a question's gold passages that are in the top 5
-\item It says nothing about what else is in the top 5
-\item So we also count \textbf{contamination@5}: old passages in the top 5
-\end{itemize}
-\vspace{0.6em}
-Before any correction, with 3 old copies: HippoRAG 2 \textbf{1.43}, dense \textbf{0.99}\\
-\quiet{the graph pulls in more copies of the same fact}
+\begin{frame}{Backup: Recall@5 is not precision@5}
+\small
+Gold passages per question, first 500: \textbf{269} have 2, \textbf{149} have 3, \textbf{82} have 4.
+
+So a perfect retriever's precision@5 is \textbf{52.52\%}, and per question\\
+\quad precision@5 = recall@5 $\times$ (number of gold $\div$ 5).
+
+\vspace{0.5em}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+ & Recall@5 & Precision@5\\
+\midrule
+HippoRAG 2 & 62.00 & 30.12\\
+dense & 56.10 & 27.72\\
+perfect retriever & 100.00 & 52.52\\
+\bottomrule
+\end{tabular}
+
+\vspace{0.5em}
+\quiet{Extension: the precision-type number is contamination@5, stale passages in the top 5 (count). $k = 0$, $n = 3$: HippoRAG 2 1.43, dense 0.99.}
 \end{frame}
 
 \begin{frame}{Backup: the PageRank maths}
