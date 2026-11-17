@@ -46,7 +46,7 @@ We reproduce the gap, not the absolute numbers (different embedder).
 \item Inject a counterfactual: in the gold passage, swap the answer object $o$ for a plausible false $o'$. Grid: $n \in \{1,3\}$ stale copies of the old passage $\times$ $k \in \{0,1,2,3,5\}$ corrections. Dense retrieval on the same index is the control.
 \item Per-stage attribution of every miss: A not among the candidate facts, B removed by the filter, C not seeded, D old passage scores higher, E outside the top 5.
 \item Blind: the grid's result files were sealed by sha256 before analysis, and the prediction was committed (\texttt{460c50a}) before any result was opened.
-\item N = 75 hand-screened swaps (one per gold passage). % RB header
+\item N = 75 swaps (one per gold passage), kept from 120 after two screening passes by Claude with written reasons; I own the screening rule. % RB header, RB section 6
 \end{itemize}
 
 \sect{3. Proposed improvement 2: contradiction-aware seeding}

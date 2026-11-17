@@ -1,6 +1,6 @@
 # Results brief: does HippoRAG 2's memory accept a correction?
 
-Written 2026-11-16, after the prediction commit `460c50a` (2026-11-16 18:59:47 IST). The sealed grid `grid_v5_20261109` matched its sha256 seal (26 of 26 files). N = 75 hand-screened swaps; grid n ∈ {1, 3} old copies × k ∈ {0, 1, 2, 3, 5} corrections.
+Written 2026-11-16, after the prediction commit `460c50a` (2026-11-16 18:59:47 IST). The sealed grid `grid_v5_20261109` matched its sha256 seal (26 of 26 files). N = 75 screened swaps (screening by Claude in two passes; see §6); grid n ∈ {1, 3} old copies × k ∈ {0, 1, 2, 3, 5} corrections.
 
 **Sources**, cited by letter after each number:
 
