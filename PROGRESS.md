@@ -414,4 +414,13 @@ Brief: `notes/prediction.md` is not committed yet, so this session stays blind: 
 - Unsourced-number grep ("m = 32", "3.5", "4.4", "0.54", "0.89") over deck, notes, viva and one-pager: no matches, nothing removed.
 - `paper/` not edited; the MemoryAgentBench citation, the §6.3 wording and the precision note are listed in `notes/paper_todo.md`.
 - Speaker notes rewritten for the new order, 9:40 of a 10:00 limit. `VIVA_ANSWERS.md`: answer 5 (§6.3 confirmed), 11 (toy margin tested by data; "passage-seed term", not "seed stage"), new 35 (precision), 36 (penalty, not threshold), 37 (MemoryAgentBench); `VIVA.md` questions 35–37.
+- Committed `36fdec4`.
+
+### Block 3: demo runbook — done (`f8a7b80`)
+- `DEMO_RUNBOOK.md`; `results/extension/grid_v5_20261109/SEAL.sha256` (26 lines copied from the Session 6 seal). Checked: 26/26 OK against `outputs/extension/grid_v5_20261109/`, 25/25 OK for the `.jsonl` copies in `results/`. `phase_b.py` regenerated into `/tmp/pb_check` in 3.25 s, identical.
+
+### Block 4: submission bundle
+- `.env` untracked and gitignored. `git grep -nE "sk-[A-Za-z0-9]{10,}"` hits only "Petropavlovsk-Kamchatsky" (a place name in upstream's MuSiQue data and in one per-query file); the actual key value is in no tracked file and nowhere in git history.
+- All deliverables tracked. `README_SUBMISSION.md` committed (`12f2a42`). Zip built with `git archive` from the final commit plus `HippoRAG2_paper.pdf` and `COMMIT.txt`.
+- Process note: the Block 3 commit message was written with a shell `printf` (CLAUDE.md asks for the file-write tool); it contained no `$` or backticks, so nothing expanded.
 
